@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
+<title>Clark Nova — Royal Quiet De Luxe Typewriter</title>
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+html, body {
+  width: 100%; height: 100%; overflow: hidden;
+  background: #1a1a1a; font-family: monospace;
+  touch-action: none; user-select: none; -webkit-user-select: none;
+}
+#app {
+  width: 100%; height: 100%; display: flex; flex-direction: column;
+}
+#canvas-area {
+  flex: 1; overflow: hidden; display: flex; flex-direction: column;
+  align-items: center; background: #2a2a2a; position: relative;
+}
+#ruler-top, #ruler-bottom {
+  height: 24px; background: #111; display: flex; align-items: center;
+  justify-content: center; flex-shrink: 0; width: 100%; overflow: hidden;
+}
+#paper-viewport {
+  flex: 1; overflow: hidden; position: relative; display: flex;
+  justify-content: center;
+}
+#paper-container {
+  position: relative; width: 2480px; height: 3508px; flex-shrink: 0;
+}
+#typing-canvas {
+  width: 2480px; height: 3508px; background: #fff; display: block;
+}
+#cursor {
+  position: absolute; width: 31px; height: 44px; background: rgba(0,0,0,0.85);
+  pointer-events: none; animation: blink 1s step-end infinite;
+}
+@keyframes blink {
+  0%, 100% { opacity: 1; } 50% { opacity: 0; }
+}
+#cursor.red { background: rgba(200,0,0,0.85); }
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="canvas-area">
+    <div id="ruler-top"></div>
+    <div id="paper-viewport">
+      <div id="paper-scroller">
+        <div id="paper-container">
+          <canvas id="typing-canvas" width="2480" height="3508"></canvas>
+          <div id="cursor"></div>
+        </div>
+      </div>
+    </div>
+    <div id="ruler-bottom"></div>
+  </div>
+  <div id="keyboard-area"></div>
+</div>
+<script>
+(function() {
+'use strict';
+
+// === CONSTANTS ===
+const CELL_W = 31;
+const CELL_H = 44;
+const COLS = 80;
+const ROWS = 79;
+const CANVAS_W = 2480;
+const CANVAS_H = 3508;
+const LEFT_MARGIN = 10;
+const RIGHT_MARGIN = 70;
+const HARD_RIGHT = 80;
+const BELL_POS = 63;
+
+// === STATE ===
+let cursorCol = LEFT_MARGIN; // 1-based position (1..80)
+let cursorRow = 1; // 1-based row (1..79)
+let shiftLocked = false;
+let shiftHeld = false; // physical or schematic shift held
+let marginReleased = false;
+let scrollOffset = 0; // in rows from top
+let audioCtx = null;
+
+// === CANVAS SETUP ===
+const canvas = document.getElementById('typing-canvas');
+const ctx = canvas.getContext('2d');
+const cursorEl = document.getElementById('cursor');
+const paperContainer = document.getElementById('paper-container');
+const paperViewport = document.getElementById('paper-viewport');
+
+// === AUDIO ===
+function getAudioCtx() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
+function playKeystroke() {
+  try {
+    const ac = getAudioCtx();
+    const osc = ac.createOscillator();
+    const gain = ac.createGain();
+    osc.type = 'square';
+    osc.frequency.setValueAtTime(800 + Math.random() * 400, ac.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(100, ac.currentTime + 0.03);
+    gain.gain.setValueAtTime(0.3, ac.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 0.05);
+    osc.connect(gain);
+    gain.connect(ac.destination);
+    osc.start(ac.currentTime);
+    osc.stop(ac.currentTime + 0.05);
+  } catch(e) {}
+}
+
+function playBell() {
+  try {
+    const ac = getAudioCtx();
+    const osc = ac.createOscillator();
+    const gain = ac.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(2000, ac.currentTime);
+    gain.gain.setValueAtTime(0.4, ac.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 0.5);
+    osc.connect(gain);
+    gain.connect(ac.destination);
+    osc.start(ac.currentTime);
+    osc.stop(ac.currentTime + 0.5);
+  } catch(e) {}
+}
+
+// === CHARACTER MAP (Royal Quiet De Luxe) ===
+const keyRows = [
+  // Row 1: numbers
+  [
+    {lower:'1', upper:'!', code:'Digit1'},
+    {lower:'2', upper:'"', code:'Digit2'},
+    {lower:'3', upper:'#', code:'Digit3'},
+    {lower:'4', upper:'$', code:'Digit4'},
+    {lower:'5', upper:'%', code:'Digit5'},
+    {lower:'6', upper:'_', code:'Digit6'},
+    {lower:'7', upper:'&', code:'Digit7'},
+    {lower:'8', upper:"'", code:'Digit8'},
+    {lower:'9', upper:'(', code:'Digit9'},
+    {lower:'0', upper:')', code:'Digit0'},
+    {lower:'-', upper:'*', code:'Minus'},
+    {lower:'=', upper:'+', code:'Equal'}
+  ],
+  // Row 2: QWERTY
+  [
+    {lower:'q', upper:'Q', code:'KeyQ'},
+    {lower:'w', upper:'W', code:'KeyW'},
+    {lower:'e', upper:'E', code:'KeyE'},
+    {lower:'r', upper:'R', code:'KeyR'},
+    {lower:'t', upper:'T', code:'KeyT'},
+    {lower:'y', upper:'Y', code:'KeyY'},
+    {lower:'u', upper:'U', code:'KeyU'},
+    {lower:'i', upper:'I', code:'KeyI'},
+    {lower:'o', upper:'O', code:'KeyO'},
+    {lower:'p', upper:'P', code:'KeyP'},
+    {lower:'\u00BD', upper:'\u00BC', code:'BracketLeft'}
+  ],
+  // Row 3: ASDF
+  [
+    {lower:'a', upper:'A', code:'KeyA'},
+    {lower:'s', upper:'S', code:'KeyS'},
+    {lower:'d', upper:'D', code:'KeyD'},
+    {lower:'f', upper:'F', code:'KeyF'},
+    {lower:'g', upper:'G', code:'KeyG'},
+    {lower:'h', upper:'H', code:'KeyH'},
+    {lower:'j', upper:'J', code:'KeyJ'},
+    {lower:'k', upper:'K', code:'KeyK'},
+    {lower:'l', upper:'L', code:'KeyL'},
+    {lower:';', upper:':', code:'Semicolon'},
+    {lower:'\u00A2', upper:'@', code:'Quote'}
+  ],
+  // Row 4: ZXCV
+  [
+    {lower:'z', upper:'Z', code:'KeyZ'},
+    {lower:'x', upper:'X', code:'KeyX'},
+    {lower:'c', upper:'C', code:'KeyC'},
+    {lower:'v', upper:'V', code:'KeyV'},
+    {lower:'b', upper:'B', code:'KeyB'},
+    {lower:'n', upper:'N', code:'KeyN'},
+    {lower:'m', upper:'M', code:'KeyM'},
+    {lower:',', upper:',', code:'Comma'},
+    {lower:'.', upper:'.', code:'Period'},
+    {lower:'/', upper:'?', code:'Slash'}
+  ]
+];
+// Build code-to-key lookup
+const codeToKey = {};
+keyRows.forEach(row => {
+  row.forEach(k => { codeToKey[k.code] = k; });
+});
+
+// === CURSOR POSITIONING ===
+function updateCursor() {
+  const x = (cursorCol - 1) * CELL_W;
+  const y = (cursorRow - 1) * CELL_H;
+  cursorEl.style.left = x + 'px';
+  cursorEl.style.top = y + 'px';
+  // Color
+  if (cursorCol >= RIGHT_MARGIN) {
+    cursorEl.classList.add('red');
+  } else {
+    cursorEl.classList.remove('red');
+  }
+  ensureCursorVisible();
+}
+
+function ensureCursorVisible() {
+  const viewportH = paperViewport.clientHeight;
+  const scale = paperViewport.clientWidth / CANVAS_W;
+  const scaledRowH = CELL_H * scale;
+  const cursorYScaled = (cursorRow - 1) * scaledRowH;
+  const scrollTop = paperViewport.scrollTop || 0;
+  const visibleTop = scrollTop;
+  const visibleBottom = scrollTop + viewportH;
+  if (cursorYScaled < visibleTop) {
+    paperViewport.scrollTop = cursorYScaled;
+  } else if (cursorYScaled + scaledRowH > visibleBottom) {
+    paperViewport.scrollTop = cursorYScaled + scaledRowH - viewportH;
+  }
+}
+
+// === TYPING LOGIC ===
+function isShifted() {
+  return shiftLocked || shiftHeld;
+}
+
+function canType() {
+  if (cursorCol >= HARD_RIGHT + 1) return false; // at position 81 = past limit
+  if (cursorCol > HARD_RIGHT) return false;
+  if (cursorCol >= RIGHT_MARGIN && !marginReleased) return false;
+  if (cursorCol >= HARD_RIGHT) return false;
+  return true;
+}
+function typeCharacter(ch) {
+  if (!canType()) return;
+  // Render character on canvas
+  const x = (cursorCol - 1) * CELL_W;
+  const y = (cursorRow - 1) * CELL_H;
+  ctx.font = 'bold 32px "Courier New", Courier, monospace';
+  ctx.fillStyle = '#1a1a2e';
+  ctx.textBaseline = 'top';
+  ctx.fillText(ch, x + 2, y + 6);
+  playKeystroke();
+  // Advance cursor
+  cursorCol++;
+  // Bell at position 63
+  if (cursorCol === BELL_POS) {
+    playBell();
+  }
+  // Check margin stop
+  if (cursorCol >= RIGHT_MARGIN && !marginReleased) {
+    cursorCol = RIGHT_MARGIN;
+  }
+  if (cursorCol > HARD_RIGHT) {
+    cursorCol = HARD_RIGHT;
+  }
+  updateCursor();
+}
+
+function doBackspace() {
+  if (cursorCol > 1) {
+    cursorCol--;
+    updateCursor();
+  }
+}
+
+function doCarriageReturn() {
+  if (cursorRow >= ROWS) return;
+  cursorRow++;
+  cursorCol = LEFT_MARGIN;
+  marginReleased = false;
+  updateCursor();
+}
+
+function doMarginRelease() {
+  if (cursorCol >= RIGHT_MARGIN) {
+    marginReleased = true;
+    updateCursor();
+  }
+}
+
+function doSpace() {
+  // Space advances cursor but doesn't obscure existing chars
+  if (!canType()) return;
+  playKeystroke();
+  cursorCol++;
+  if (cursorCol >= RIGHT_MARGIN && !marginReleased) {
+    cursorCol = RIGHT_MARGIN;
+  }
+  if (cursorCol > HARD_RIGHT) {
+    cursorCol = HARD_RIGHT;
+  }
+  updateCursor();
+}
+// === KEYBOARD INPUT (Physical) ===
+const pressedKeys = new Set();
+
+function handleKeyDown(e) {
+  if (e.repeat) return;
+  const code = e.code;
+  // Shift keys
+  if (code === 'ShiftLeft' || code === 'ShiftRight') {
+    shiftHeld = true;
+    if (shiftLocked) {
+      shiftLocked = false;
+      updateShiftLockVisual();
+    }
+    highlightKey(code, true);
+    e.preventDefault();
+    return;
+  }
+  // Enter = carriage return
+  if (code === 'Enter') {
+    doCarriageReturn();
+    highlightKey('Enter', true);
+    e.preventDefault();
+    return;
+  }
+  // Backspace
+  if (code === 'Backspace') {
+    doBackspace();
+    highlightKey('Backspace', true);
+    e.preventDefault();
+    return;
+  }
+  // Tab (ignored functionally on this typewriter but we have the key)
+  if (code === 'Tab') {
+    e.preventDefault();
+    highlightKey('Tab', true);
+    return;
+  }
+  // Space
+  if (code === 'Space') {
+    doSpace();
+    highlightKey('Space', true);
+    e.preventDefault();
+    return;
+  }
+  // Printable keys
+  const keyDef = codeToKey[code];
+  if (keyDef) {
+    const ch = isShifted() ? keyDef.upper : keyDef.lower;
+    typeCharacter(ch);
+    highlightKey(code, true);
+    e.preventDefault();
+  }
+}
+
+function handleKeyUp(e) {
+  const code = e.code;
+  if (code === 'ShiftLeft' || code === 'ShiftRight') {
+    shiftHeld = false;
+    highlightKey(code, false);
+    return;
+  }
+  highlightKey(code, false);
+}
+
+document.addEventListener('keydown', handleKeyDown);
+document.addEventListener('keyup', handleKeyUp);
+// === SCHEMATIC KEYBOARD RENDERING ===
+const keyboardArea = document.getElementById('keyboard-area');
+const keyElements = {}; // code -> DOM element
+
+function highlightKey(code, on) {
+  const el = keyElements[code];
+  if (el) {
+    if (on) el.classList.add('pressed');
+    else el.classList.remove('pressed');
+  }
+}
+
+function updateShiftLockVisual() {
+  const el = keyElements['ShiftLock'];
+  if (el) {
+    if (shiftLocked) el.classList.add('locked');
+    else el.classList.remove('locked');
+  }
+}
+
+function buildKeyboard() {
+  const kb = document.createElement('div');
+  kb.className = 'keyboard';
+
+  // Row 1: BACK SPACE + numbers + TAB
+  const row1 = document.createElement('div');
+  row1.className = 'kb-row';
+  row1.appendChild(makeSpecialKey('BACK\nSPACE', 'Backspace', 1.5));
+  keyRows[0].forEach(k => row1.appendChild(makeCharKey(k)));
+  row1.appendChild(makeSpecialKey('TAB', 'Tab', 1.5));
+  kb.appendChild(row1);
+
+  // Row 2: letter keys + ½/¼
+  const row2 = document.createElement('div');
+  row2.className = 'kb-row';
+  keyRows[1].forEach(k => row2.appendChild(makeCharKey(k)));
+  kb.appendChild(row2);
+
+  // Row 3: SHIFT LOCK + letters + CR indicator
+  const row3 = document.createElement('div');
+  row3.className = 'kb-row';
+  row3.appendChild(makeSpecialKey('SHIFT\nLOCK', 'ShiftLock', 1.8));
+  keyRows[2].forEach(k => row3.appendChild(makeCharKey(k)));
+  row3.appendChild(makeSpecialKey('\u21B5', 'Enter', 1.8));
+  kb.appendChild(row3);
+
+  // Row 4: L SHIFT + letters + R SHIFT + MAR REL
+  const row4 = document.createElement('div');
+  row4.className = 'kb-row';
+  row4.appendChild(makeSpecialKey('SHIFT', 'ShiftLeft', 1.8));
+  keyRows[3].forEach(k => row4.appendChild(makeCharKey(k)));
+  row4.appendChild(makeSpecialKey('SHIFT', 'ShiftRight', 1.8));
+  row4.appendChild(makeSpecialKey('MAR\nREL', 'MarRel', 1.3));
+  kb.appendChild(row4);
+
+  // Row 5: Spacebar
+  const row5 = document.createElement('div');
+  row5.className = 'kb-row';
+  row5.appendChild(makeSpecialKey('', 'Space', 10));
+  kb.appendChild(row5);
+
+  // Carriage return handle
+  const handle = document.createElement('div');
+  handle.className = 'cr-handle';
+  handle.innerHTML = '&#x21A9;';
+  handle.addEventListener('mousedown', (e) => { e.preventDefault(); doCarriageReturn(); });
+  handle.addEventListener('touchstart', (e) => { e.preventDefault(); doCarriageReturn(); });
+
+  keyboardArea.innerHTML = '';
+  const kbWrap = document.createElement('div');
+  kbWrap.className = 'kb-wrapper';
+  kbWrap.appendChild(handle);
+  kbWrap.appendChild(kb);
+  keyboardArea.appendChild(kbWrap);
+}
+function makeCharKey(keyDef) {
+  const el = document.createElement('div');
+  el.className = 'key char-key';
+  el.innerHTML = '<span class="upper">' + escHtml(keyDef.upper) + '</span><span class="lower">' + escHtml(keyDef.lower) + '</span>';
+  el.dataset.code = keyDef.code;
+  keyElements[keyDef.code] = el;
+  // Mouse
+  el.addEventListener('mousedown', (e) => {
+    e.preventDefault();
+    el.classList.add('pressed');
+    const ch = isShifted() ? keyDef.upper : keyDef.lower;
+    typeCharacter(ch);
+  });
+  el.addEventListener('mouseup', (e) => { el.classList.remove('pressed'); });
+  el.addEventListener('mouseleave', (e) => { el.classList.remove('pressed'); });
+  // Touch
+  el.addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    el.classList.add('pressed');
+    const ch = isShifted() ? keyDef.upper : keyDef.lower;
+    typeCharacter(ch);
+  });
+  el.addEventListener('touchend', (e) => { e.preventDefault(); el.classList.remove('pressed'); });
+  el.addEventListener('touchcancel', (e) => { el.classList.remove('pressed'); });
+  return el;
+}
+
+function makeSpecialKey(label, code, widthMultiplier) {
+  const el = document.createElement('div');
+  el.className = 'key special-key';
+  el.style.flex = '0 0 ' + (widthMultiplier * 3) + 'em';
+  el.innerHTML = '<span class="label">' + label.replace('\n','<br>') + '</span>';
+  el.dataset.code = code;
+  keyElements[code] = el;
+
+  function onPress(e) {
+    e.preventDefault();
+    el.classList.add('pressed');
+    if (code === 'Backspace') doBackspace();
+    else if (code === 'Enter') doCarriageReturn();
+    else if (code === 'Space') doSpace();
+    else if (code === 'Tab') { /* no-op */ }
+    else if (code === 'MarRel') doMarginRelease();
+    else if (code === 'ShiftLock') {
+      shiftLocked = !shiftLocked;
+      updateShiftLockVisual();
+    }
+    else if (code === 'ShiftLeft' || code === 'ShiftRight') {
+      shiftHeld = true;
+      if (shiftLocked) { shiftLocked = false; updateShiftLockVisual(); }
+    }
+  }
+  function onRelease(e) {
+    if (e) e.preventDefault();
+    el.classList.remove('pressed');
+    if (code === 'ShiftLeft' || code === 'ShiftRight') {
+      shiftHeld = false;
+    }
+  }
+
+  el.addEventListener('mousedown', onPress);
+  el.addEventListener('mouseup', onRelease);
+  el.addEventListener('mouseleave', onRelease);
+  el.addEventListener('touchstart', onPress);
+  el.addEventListener('touchend', onRelease);
+  el.addEventListener('touchcancel', onRelease);
+  return el;
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+// === RULER RENDERING ===
+function buildRuler(container) {
+  container.innerHTML = '';
+  const ruler = document.createElement('div');
+  ruler.className = 'ruler';
+  // Pattern: '0''''|''''1|0''''|''''2|0 ... |''''8|0'''
+  // Each position gets a character. Positions 0-79 map to columns 1-80
+  // Labels: at pos 0 -> "0", at pos 9 -> "|", at pos 10 -> "1|0", etc.
+  // Build full 86-char ruler string (3 extra left + 80 + 3 extra right)
+  const marks = [];
+  for (let i = -3; i < 83; i++) {
+    let ch = "'";
+    const posInGroup = ((i % 10) + 10) % 10;
+    if (i >= 0 && i < 80) {
+      if (posInGroup === 0) ch = Math.floor(i / 10).toString();
+      else if (posInGroup === 5) ch = '|';
+      else ch = "'";
+    } else {
+      if (posInGroup === 5) ch = '|';
+      else ch = "'";
+    }
+    const span = document.createElement('span');
+    span.className = 'ruler-mark';
+    if (i < 0 || i >= 80) span.classList.add('outside');
+    if (i === 10 || i === 70) span.classList.add('margin-mark');
+    span.textContent = ch;
+    ruler.appendChild(span);
+  }
+  container.appendChild(ruler);
+}
+
+// === PAPER VIEWPORT SCALING & SCROLLING ===
+function setupPaperViewport() {
+  const vp = paperViewport;
+  // Scale paper to fit width
+  const availW = vp.clientWidth;
+  const scale = Math.min(availW / CANVAS_W, 1);
+  paperContainer.style.transform = 'scale(' + scale + ')';
+  paperContainer.style.transformOrigin = 'top left';
+  // Make scroller the right size
+  const scroller = document.getElementById('paper-scroller');
+  scroller.style.width = (CANVAS_W * scale) + 'px';
+  scroller.style.height = (CANVAS_H * scale) + 'px';
+  scroller.style.margin = '0 auto';
+  scroller.style.position = 'relative';
+  scroller.style.overflow = 'hidden';
+  vp.style.overflowY = 'auto';
+  vp.style.overflowX = 'hidden';
+}
+
+// === INITIALIZATION ===
+function init() {
+  buildRuler(document.getElementById('ruler-top'));
+  buildRuler(document.getElementById('ruler-bottom'));
+  buildKeyboard();
+  updateCursor();
+  setupPaperViewport();
+  window.addEventListener('resize', () => {
+    setupPaperViewport();
+    updateCursor();
+  });
+}
+
+init();
+})();
+</script>
+<style>
+/* Keyboard Area Styles */
+#keyboard-area {
+  height: 33vh; min-height: 200px; background: #5ab4ac;
+  display: flex; align-items: center; justify-content: center;
+  padding: 8px; flex-shrink: 0;
+  border-top: 4px solid #3d8c85;
+}
+.kb-wrapper {
+  display: flex; align-items: center; gap: 10px;
+  width: 100%; max-width: 900px; height: 100%;
+}
+.cr-handle {
+  width: 40px; flex-shrink: 0; height: 80%;
+  background: linear-gradient(to bottom, #c0c0c0, #808080);
+  border-radius: 4px 4px 20px 20px; display: flex;
+  align-items: center; justify-content: center;
+  font-size: 24px; color: #333; cursor: pointer;
+  border: 2px solid #666; box-shadow: 2px 2px 6px rgba(0,0,0,0.3);
+}
+.cr-handle:active { background: linear-gradient(to bottom, #999, #555); }
+.keyboard {
+  flex: 1; display: flex; flex-direction: column;
+  gap: 4px; align-items: center;
+}
+.kb-row {
+  display: flex; gap: 3px; justify-content: center; width: 100%;
+}
+.key {
+  height: 2.8em; min-width: 2.8em; border-radius: 50%;
+  background: #f5f0e8; border: 2px solid #999;
+  display: flex; flex-direction: column; align-items: center;
+  justify-content: center; cursor: pointer; font-size: 11px;
+  font-family: 'Courier New', monospace; font-weight: bold;
+  color: #222; box-shadow: 1px 2px 4px rgba(0,0,0,0.3);
+  transition: background 0.05s, transform 0.05s;
+  flex: 0 0 2.8em; position: relative;
+  -webkit-tap-highlight-color: transparent;
+}
+.key .upper { font-size: 9px; color: #555; line-height: 1; }
+.key .lower { font-size: 13px; line-height: 1; }
+.key.pressed, .key:active {
+  background: #333; color: #fff; transform: translateY(2px);
+  box-shadow: 0 0 2px rgba(0,0,0,0.5);
+}
+.key.pressed .upper, .key.pressed .lower { color: #fff; }
+.key.locked { background: #ff6; border-color: #cc0; }
+.special-key {
+  border-radius: 6px; font-size: 9px; min-width: 3em;
+}
+.special-key .label { text-align: center; line-height: 1.2; }
+/* Ruler Styles */
+.ruler {
+  display: flex; align-items: center; justify-content: center;
+  height: 100%;
+}
+.ruler-mark {
+  display: inline-block; width: 8px; text-align: center;
+  font-size: 10px; color: #aaa; font-family: monospace;
+}
+.ruler-mark.outside { color: #555; }
+.ruler-mark.margin-mark { color: #f44; font-weight: bold; }
+
+/* Paper scroller */
+#paper-scroller {
+  overflow: hidden; position: relative;
+}
+#paper-viewport {
+  scrollbar-width: thin; scrollbar-color: #555 #222;
+}
+#paper-viewport::-webkit-scrollbar { width: 8px; }
+#paper-viewport::-webkit-scrollbar-track { background: #222; }
+#paper-viewport::-webkit-scrollbar-thumb { background: #555; border-radius: 4px; }
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .key { height: 2.2em; min-width: 2.2em; flex: 0 0 2.2em; font-size: 9px; }
+  .key .upper { font-size: 7px; }
+  .key .lower { font-size: 10px; }
+  .special-key { font-size: 7px; }
+  .kb-row { gap: 2px; }
+  .keyboard { gap: 3px; }
+  .cr-handle { width: 30px; font-size: 18px; }
+  #keyboard-area { padding: 4px; min-height: 160px; }
+}
+@media (max-width: 480px) {
+  .key { height: 1.8em; min-width: 1.8em; flex: 0 0 1.8em; font-size: 7px; }
+  .key .upper { font-size: 6px; }
+  .key .lower { font-size: 9px; }
+  .special-key { font-size: 6px; }
+  .cr-handle { width: 24px; font-size: 14px; }
+}
+</style>
+</body>
+</html>
