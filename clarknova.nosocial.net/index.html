@@ -3,151 +3,146 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
-<title>Clark Nova Typewriter</title>
+<title>Clark Nova Typewriter by NoSocial.Net</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{width:100%;height:100%;overflow:hidden;background:#1a1a1a;
 font-family:monospace;touch-action:none;user-select:none;-webkit-user-select:none}
 #app{width:100%;height:100%;display:flex;flex-direction:column}
-#canvas-area{flex:1;overflow:hidden;display:flex;flex-direction:column;
-align-items:stretch;background:#2a2a2a;position:relative}
+#canvas-area{flex:1;overflow:hidden;display:flex;flex-direction:column;align-items:stretch;background:#2a2a2a}
+#vp-row{flex:1;display:flex;align-items:stretch;overflow:hidden}
+#paper-viewport{flex:1;overflow-y:auto;overflow-x:hidden;scrollbar-width:thin;scrollbar-color:#555 #2a2a2a}
+#paper-viewport::-webkit-scrollbar{width:10px}
+#paper-viewport::-webkit-scrollbar-track{background:#2a2a2a}
+#paper-viewport::-webkit-scrollbar-thumb{background:#555;border-radius:4px}
+#paper-wrap{position:relative}
+.paper-pad{background:#2a2a2a;width:100%}
+#paper-container{position:relative;background:#fff;box-shadow:0 2px 20px rgba(0,0,0,0.5)}
+#typing-canvas{display:block;background:#fff}
+#cursor{position:absolute;background:rgba(0,0,0,0.75);pointer-events:none;animation:blink 1s step-end infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+#cursor.red{background:rgba(200,0,0,0.85)}
+.ruler-wrap{height:32px;background:#111;flex-shrink:0;overflow:hidden;position:relative}
+.ruler-canvas{display:block;position:absolute;top:0}
 </style>
 </head>
 <body>
 <div id="app">
-<div id="canvas-area"></div>
-<div id="nameplate"><span class="np-screw left"></span><span class="np-text">Clark Nova</span><span class="np-screw right"></span></div>
+<div id="canvas-area">
+<div id="ruler-top" class="ruler-wrap"></div>
+<div id="vp-row">
+<div id="roll-buttons"><button id="roll-up">&#9650;</button><button id="roll-down">&#9660;</button></div>
+<div id="paper-viewport"><div id="paper-wrap">
+<div class="paper-pad" id="pad-top"></div>
+<div id="paper-container">
+<canvas id="typing-canvas" width="2480" height="3508"></canvas>
+<div id="cursor"></div>
+</div>
+<div class="paper-pad" id="pad-bottom"></div>
+</div></div>
+</div>
+<div id="ruler-bottom" class="ruler-wrap"></div>
+</div>
+<div id="nameplate"><span class="np-plate"><span class="np-screw l"></span><span class="np-text">Clark Nova</span><span class="np-screw r"></span></span></div>
 <div id="keyboard-area"></div>
 </div>
 <script>
 (function(){
 'use strict';
-// === GRID CALCULATION ===
-// Page: 2480x3508. Columns: 80. CELL_W = 2480/80 = 31px.
-// Line height H=44, top/bottom margin M=16, lines L=79
-// Check: 16 + 44*79 + 16 = 16+3476+16 = 3508 ✓
-const CELL_W=31, CELL_H=44, COLS=80, ROWS=79;
-const CANVAS_W=2480, CANVAS_H=3508;
-const MARGIN_TOP=16, MARGIN_BOTTOM=16;
-const LEFT_MARGIN=10, RIGHT_MARGIN=70, HARD_RIGHT=80, BELL_COL=63;
-const RULER_H=28, PAPER_PAD=40;
+// === GRID ===
+// Page 2480x3508. 80 cols, CELL_W=31.
+// CELL_H=44, ROWS=79 (79*44=3476, 32px unused at bottom).
+// Grid starts at y=0. Rows 1-4 are "top margin". Initial cursor = row 5, col 11.
+// User can go up to row 1. Columns 1-10 left margin, 71-80 right margin.
+// Notch 0 = left edge of paper (pixel 0). Notch 80 = right edge (pixel 2480).
+// Margin notches at 10 and 70.
+const CELL_W=31,CELL_H=44,COLS=80,ROWS=79;
+const CANVAS_W=2480,CANVAS_H=3508;
+// 79*44=3476, remainder=32. Split: 16px top + 16px bottom padding.
+const GRID_PAD_TOP=16,GRID_PAD_BOT=16; // 16+3476+16=3508
+const LEFT_MARGIN=11,RIGHT_MARGIN=70,HARD_RIGHT=80,BELL_COL=63;
+const INITIAL_ROW=5,INITIAL_COL=11;
+const RULER_H=32,PAPER_PAD=40,RULER_EXTRA=4;
+const ROLL_W=36;
 
-// === STATE ===
-let cursorCol=LEFT_MARGIN, cursorRow=1;
-let shiftLocked=false, shiftHeld=false, marginReleased=false;
-let audioCtx=null;
+let cursorCol=INITIAL_COL,cursorRow=INITIAL_ROW;
+let shiftLocked=false,shiftHeld=false,marginReleased=false;
+let audioCtx=null,currentScale=1;
 
-// === DOM ===
-const canvasArea=document.getElementById('canvas-area');
-const rulerTopCanvas=document.createElement('canvas');
-const rulerBottomCanvas=document.createElement('canvas');
-const viewport=document.createElement('div');
-viewport.id='paper-viewport';
-const paperWrap=document.createElement('div');
-paperWrap.id='paper-wrap';
-const topPad=document.createElement('div');
-topPad.className='paper-pad';
-const bottomPad=document.createElement('div');
-bottomPad.className='paper-pad';
-const paperContainer=document.createElement('div');
-paperContainer.id='paper-container';
-const canvas=document.createElement('canvas');
-canvas.id='typing-canvas';
-canvas.width=CANVAS_W; canvas.height=CANVAS_H;
-const cursorEl=document.createElement('div');
-cursorEl.id='cursor';
-// Paper roll buttons (left side)
-const rollBtns=document.createElement('div');
-rollBtns.id='roll-buttons';
-rollBtns.innerHTML='<button id="roll-up">&#9650;</button><button id="roll-down">&#9660;</button>';
-
-paperContainer.appendChild(canvas);
-paperContainer.appendChild(cursorEl);
-paperWrap.appendChild(topPad);
-paperWrap.appendChild(paperContainer);
-paperWrap.appendChild(bottomPad);
-viewport.appendChild(paperWrap);
-canvasArea.appendChild(rulerTopCanvas);
-const vpRow=document.createElement('div');
-vpRow.id='vp-row';
-vpRow.appendChild(rollBtns);
-vpRow.appendChild(viewport);
-canvasArea.appendChild(vpRow);
-canvasArea.appendChild(rulerBottomCanvas);
+const canvas=document.getElementById('typing-canvas');
 const ctx=canvas.getContext('2d');
+const cursorEl=document.getElementById('cursor');
+const viewport=document.getElementById('paper-viewport');
+const paperWrap=document.getElementById('paper-wrap');
+const paperContainer=document.getElementById('paper-container');
+const padTop=document.getElementById('pad-top');
+const padBottom=document.getElementById('pad-bottom');
+
 // === CANVAS INIT ===
-function initCanvas(){
-  ctx.fillStyle='#ffffff';
-  ctx.fillRect(0,0,CANVAS_W,CANVAS_H);
-  // Steganographic watermarks in 4 A6 quadrant centers
-  const wm=[[620,877],[1860,877],[620,2631],[1860,2631]];
-  ctx.font='bold 48px "Courier New",Courier,monospace';
-  ctx.fillStyle='rgba(254,254,254,1)';
-  ctx.textAlign='center'; ctx.textBaseline='middle';
-  wm.forEach(([x,y])=>ctx.fillText('Clark Nova',x,y));
-  ctx.textAlign='start'; ctx.textBaseline='alphabetic';
-}
-initCanvas();
+ctx.fillStyle='#ffffff';
+ctx.fillRect(0,0,CANVAS_W,CANVAS_H);
+// Watermarks
+const wm=[[620,877],[1860,877],[620,2631],[1860,2631]];
+ctx.font='bold 48px Courier New,Courier,monospace';
+ctx.fillStyle='rgba(254,254,254,1)';
+ctx.textAlign='center';ctx.textBaseline='middle';
+wm.forEach(([x,y])=>{ctx.fillText('Clark Nova',x,y);ctx.fillText('by NoSocial.Net',x,y+56);});
+ctx.textAlign='start';ctx.textBaseline='alphabetic';
 
 // === AUDIO ===
 function getAC(){if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();return audioCtx;}
 function playKeystroke(){
-  try{
-    const ac=getAC(), t=ac.currentTime;
-    // Mechanical typewriter hammer: sharp attack, metallic resonance
-    const osc1=ac.createOscillator(), g1=ac.createGain();
-    osc1.type='sawtooth';
-    osc1.frequency.setValueAtTime(3000,t);
-    osc1.frequency.exponentialRampToValueAtTime(200,t+0.015);
-    g1.gain.setValueAtTime(0.4,t);
-    g1.gain.exponentialRampToValueAtTime(0.001,t+0.04);
-    osc1.connect(g1); g1.connect(ac.destination);
-    osc1.start(t); osc1.stop(t+0.04);
-    // Metal clack component
-    const osc2=ac.createOscillator(), g2=ac.createGain();
-    osc2.type='square';
-    osc2.frequency.setValueAtTime(4500,t);
-    osc2.frequency.exponentialRampToValueAtTime(800,t+0.008);
-    g2.gain.setValueAtTime(0.15,t);
-    g2.gain.exponentialRampToValueAtTime(0.001,t+0.025);
-    osc2.connect(g2); g2.connect(ac.destination);
-    osc2.start(t); osc2.stop(t+0.025);
+  try{const ac=getAC(),t=ac.currentTime;
+  const buf=ac.createBuffer(1,Math.floor(ac.sampleRate*0.035),ac.sampleRate);
+  const d=buf.getChannelData(0);
+  for(let i=0;i<d.length;i++){
+    const env=Math.exp(-i/(ac.sampleRate*0.006));
+    d[i]=env*(Math.random()*2-1)*0.5+env*0.25*Math.sin(i*2*Math.PI*4500/ac.sampleRate);
+  }
+  const src=ac.createBufferSource();src.buffer=buf;
+  src.connect(ac.destination);src.start(t);
   }catch(e){}
 }
 function playBell(){
-  try{
-    const ac=getAC(),t=ac.currentTime;
-    const osc=ac.createOscillator(),g=ac.createGain();
-    osc.type='sine'; osc.frequency.setValueAtTime(2400,t);
-    g.gain.setValueAtTime(0.35,t);
-    g.gain.exponentialRampToValueAtTime(0.001,t+0.6);
-    osc.connect(g); g.connect(ac.destination);
-    osc.start(t); osc.stop(t+0.6);
+  try{const ac=getAC(),t=ac.currentTime;
+  const osc=ac.createOscillator(),g=ac.createGain();
+  osc.type='sine';osc.frequency.setValueAtTime(2400,t);
+  g.gain.setValueAtTime(0.3,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.6);
+  osc.connect(g);g.connect(ac.destination);osc.start(t);osc.stop(t+0.6);
   }catch(e){}
 }
 function playCarriageReturn(){
-  try{
-    const ac=getAC(),t=ac.currentTime;
-    // Sliding mechanical sound
-    const osc=ac.createOscillator(),g=ac.createGain();
-    osc.type='sawtooth';
-    osc.frequency.setValueAtTime(150,t);
-    osc.frequency.linearRampToValueAtTime(400,t+0.15);
-    osc.frequency.linearRampToValueAtTime(100,t+0.2);
-    g.gain.setValueAtTime(0.2,t);
-    g.gain.linearRampToValueAtTime(0.25,t+0.1);
-    g.gain.exponentialRampToValueAtTime(0.001,t+0.25);
-    osc.connect(g); g.connect(ac.destination);
-    osc.start(t); osc.stop(t+0.25);
-    // Ding at end
-    const o2=ac.createOscillator(),g2=ac.createGain();
-    o2.type='sine'; o2.frequency.setValueAtTime(1200,t+0.2);
-    g2.gain.setValueAtTime(0,t); g2.gain.setValueAtTime(0.1,t+0.2);
-    g2.gain.exponentialRampToValueAtTime(0.001,t+0.35);
-    o2.connect(g2); g2.connect(ac.destination);
-    o2.start(t+0.2); o2.stop(t+0.35);
+  try{const ac=getAC(),t=ac.currentTime;
+  const len=0.25,sr=ac.sampleRate;
+  const buf=ac.createBuffer(1,Math.floor(sr*len),sr);
+  const d=buf.getChannelData(0);
+  for(let i=0;i<d.length;i++){
+    const p=i/d.length;
+    const env=p<0.05?p*20:(p<0.7?1:Math.exp(-(p-0.7)*8));
+    const noise=(Math.random()*2-1)*0.15;
+    const rumble=Math.sin(i*2*Math.PI*80/sr)*0.12;
+    const rattle=Math.sin(i*2*Math.PI*(200+p*100)/sr)*0.06;
+    d[i]=env*(noise+rumble+rattle);
+  }
+  const src=ac.createBufferSource();src.buffer=buf;
+  const filt=ac.createBiquadFilter();filt.type='lowpass';filt.frequency.value=1200;
+  src.connect(filt);filt.connect(ac.destination);src.start(t);
   }catch(e){}
 }
+function playRoll(){
+  try{const ac=getAC(),t=ac.currentTime;
+  const buf=ac.createBuffer(1,Math.floor(ac.sampleRate*0.08),ac.sampleRate);
+  const d=buf.getChannelData(0);
+  for(let i=0;i<d.length;i++){
+    const env=Math.exp(-i/(ac.sampleRate*0.02));
+    d[i]=env*((Math.random()*2-1)*0.15+0.08*Math.sin(i*2*Math.PI*150/ac.sampleRate));
+  }
+  const src=ac.createBufferSource();src.buffer=buf;
+  const filt=ac.createBiquadFilter();filt.type='lowpass';filt.frequency.value=500;
+  src.connect(filt);filt.connect(ac.destination);src.start(t);
+  }catch(e){}
+}
+
 // === CHARACTER MAP ===
 const keyRows=[
   [{l:'1',u:'!',c:'Digit1'},{l:'2',u:'"',c:'Digit2'},{l:'3',u:'#',c:'Digit3'},
@@ -169,65 +164,57 @@ const keyRows=[
 ];
 const codeToKey={};
 keyRows.forEach(r=>r.forEach(k=>{codeToKey[k.c]=k;}));
-
 // === CURSOR ===
-function getCursorX(){return (cursorCol-1)*CELL_W;}
-function getCursorY(){return MARGIN_TOP+(cursorRow-1)*CELL_H;}
+// Grid: column 1 starts at x=0, column 80 ends at x=2480.
+// So column C occupies x from (C-1)*31 to C*31.
+// Row R occupies y from GRID_PAD_TOP+(R-1)*44 to GRID_PAD_TOP+R*44.
 function updateCursor(){
-  cursorEl.style.left=getCursorX()+'px';
-  cursorEl.style.top=getCursorY()+'px';
+  cursorEl.style.left=((cursorCol-1)*CELL_W)+'px';
+  cursorEl.style.top=(GRID_PAD_TOP+(cursorRow-1)*CELL_H)+'px';
   cursorEl.style.width=CELL_W+'px';
   cursorEl.style.height=CELL_H+'px';
-  const atMarginStop=(cursorCol>=RIGHT_MARGIN&&!marginReleased);
-  const atHardStop=(cursorCol>=HARD_RIGHT&&marginReleased);
-  if(atMarginStop||atHardStop){cursorEl.classList.add('red');}
-  else{cursorEl.classList.remove('red');}
-  updateMarRelVisual();
+  // Red: past margin and locked, OR at hard right after release
+  if((cursorCol>RIGHT_MARGIN&&!marginReleased)||(cursorCol>=HARD_RIGHT&&marginReleased)){
+    cursorEl.classList.add('red');
+  }else{cursorEl.classList.remove('red');}
+  updateMarRelVis();
 }
 function ensureCursorVisibleOnCR(){
-  const scale=currentScale||1;
-  const cursorYInWrap=PAPER_PAD+(getCursorY())*scale;
-  const cursorBottomInWrap=cursorYInWrap+CELL_H*scale;
+  const s=currentScale;
+  const cy=PAPER_PAD+(GRID_PAD_TOP+(cursorRow-1)*CELL_H)*s;
+  const cb=cy+CELL_H*s;
   const vpH=viewport.clientHeight;
   const st=viewport.scrollTop;
-  if(cursorBottomInWrap>st+vpH){
-    viewport.scrollTop=cursorBottomInWrap-vpH;
-  } else if(cursorYInWrap<st){
-    viewport.scrollTop=cursorYInWrap;
-  }
+  if(cb>st+vpH)viewport.scrollTop=cb-vpH;
+  else if(cy<st)viewport.scrollTop=cy;
 }
-let currentScale=1;
-function updateMarRelVisual(){
-  const el=keyElements['MarRel'];
-  if(!el)return;
-  if(cursorCol>=RIGHT_MARGIN&&!marginReleased){el.classList.add('mar-active');}
+function updateMarRelVis(){
+  const el=keyElements['MarRel'];if(!el)return;
+  if(cursorCol>RIGHT_MARGIN&&!marginReleased){el.classList.add('mar-active');}
   else{el.classList.remove('mar-active');}
 }
-function checkBell(oldCol,newCol){
-  if(oldCol<BELL_COL&&newCol>=BELL_COL)playBell();
-}
+function checkBell(oldCol,newCol){if(oldCol<BELL_COL&&newCol>=BELL_COL)playBell();}
 
-// === TYPING LOGIC ===
+// === TYPING ===
 function isShifted(){return shiftLocked||shiftHeld;}
 function canType(){
   if(cursorCol>HARD_RIGHT)return false;
-  if(cursorCol>=RIGHT_MARGIN&&!marginReleased)return false;
+  if(cursorCol>RIGHT_MARGIN&&!marginReleased)return false;
   return true;
 }
 function typeCharacter(ch){
   if(!canType())return;
   const x=(cursorCol-1)*CELL_W;
-  const y=MARGIN_TOP+(cursorRow-1)*CELL_H;
-  // Render character - tighter, more typewriter-like
+  const y=GRID_PAD_TOP+(cursorRow-1)*CELL_H;
   ctx.font='26px "Courier New",Courier,monospace';
   ctx.fillStyle='#0a0a1a';
   ctx.textBaseline='top';
-  ctx.fillText(ch,x+4,y+10);
+  ctx.fillText(ch,x+5,y+10);
   playKeystroke();
-  if(cursorCol>=HARD_RIGHT){updateCursor();return;} // print in place at col 80
+  if(cursorCol>=HARD_RIGHT){updateCursor();return;}
   const oldCol=cursorCol;
   cursorCol++;
-  if(cursorCol>=RIGHT_MARGIN&&!marginReleased){cursorCol=RIGHT_MARGIN;}
+  if(cursorCol>RIGHT_MARGIN&&!marginReleased){cursorCol=RIGHT_MARGIN+1;}
   checkBell(oldCol,cursorCol);
   updateCursor();
 }
@@ -237,70 +224,54 @@ function doSpace(){
   if(cursorCol>=HARD_RIGHT){updateCursor();return;}
   const oldCol=cursorCol;
   cursorCol++;
-  if(cursorCol>=RIGHT_MARGIN&&!marginReleased){cursorCol=RIGHT_MARGIN;}
+  if(cursorCol>RIGHT_MARGIN&&!marginReleased){cursorCol=RIGHT_MARGIN+1;}
   checkBell(oldCol,cursorCol);
   updateCursor();
 }
 function doTab(){
+  // Tab stops: 1,6,11,16,21,26,31,36,41,46,51,56,61,66,71
   if(!canType())return;
   playKeystroke();
+  if(cursorCol>=HARD_RIGHT){updateCursor();return;}
   const oldCol=cursorCol;
-  let target=Math.ceil((cursorCol+1)/5)*5;
+  // Next tab stop = ((cursorCol-1)/5 floored + 1)*5 + 1
+  let target=Math.floor((cursorCol-1)/5)*5+6;
   if(target<=cursorCol)target+=5;
   if(target>HARD_RIGHT)target=HARD_RIGHT;
-  if(target>=RIGHT_MARGIN&&!marginReleased)target=RIGHT_MARGIN;
+  if(target>RIGHT_MARGIN&&!marginReleased)target=RIGHT_MARGIN+1;
   cursorCol=target;
   checkBell(oldCol,cursorCol);
   updateCursor();
 }
-function doBackspace(){
-  if(cursorCol>1){cursorCol--;updateCursor();}
-}
+function doBackspace(){if(cursorCol>1){cursorCol--;updateCursor();}}
 function doCarriageReturn(){
   if(cursorRow>=ROWS)return;
-  cursorRow++;cursorCol=LEFT_MARGIN;marginReleased=false;
-  playCarriageReturn();
-  updateCursor();
-  ensureCursorVisibleOnCR();
+  cursorRow++;cursorCol=INITIAL_COL;marginReleased=false;
+  playCarriageReturn();updateCursor();ensureCursorVisibleOnCR();
 }
 function doMarginRelease(){
-  if(cursorCol>=RIGHT_MARGIN&&!marginReleased){
-    marginReleased=true;
-    const oldCol=cursorCol;
-    cursorCol++;
-    if(cursorCol>HARD_RIGHT)cursorCol=HARD_RIGHT;
-    checkBell(oldCol,cursorCol);
-    updateCursor();
+  if(cursorCol>RIGHT_MARGIN&&!marginReleased){
+    marginReleased=true;updateCursor();
   }
 }
-function doCursorUp(){
-  if(cursorRow>1){cursorRow--;updateCursor();ensureCursorVisibleOnCR();}
-}
-function doCursorDown(){
-  if(cursorRow<ROWS){cursorRow++;updateCursor();ensureCursorVisibleOnCR();}
-}
+function doCursorUp(){if(cursorRow>1){cursorRow--;playRoll();updateCursor();ensureCursorVisibleOnCR();}}
+function doCursorDown(){if(cursorRow<ROWS){cursorRow++;playRoll();updateCursor();ensureCursorVisibleOnCR();}}
 // === KEYBOARD INPUT ===
 function handleKeyDown(e){
-  if(e.repeat)return;
-  const code=e.code;
-  if(code==='ShiftLeft'||code==='ShiftRight'){
-    shiftHeld=true;
-    if(shiftLocked){shiftLocked=false;updateShiftLockVisual();}
-    highlightKey(code,true);e.preventDefault();return;
-  }
-  if(code==='Enter'){doCarriageReturn();highlightKey('Enter',true);e.preventDefault();return;}
-  if(code==='Backspace'){doBackspace();highlightKey('Backspace',true);e.preventDefault();return;}
-  if(code==='Tab'){doTab();highlightKey('Tab',true);e.preventDefault();return;}
-  if(code==='Space'){doSpace();highlightKey('Space',true);e.preventDefault();return;}
-  if(code==='ArrowUp'){doCursorUp();highlightKey('ArrowUp',true);e.preventDefault();return;}
-  if(code==='ArrowDown'){doCursorDown();highlightKey('ArrowDown',true);e.preventDefault();return;}
+  if(e.repeat)return;const code=e.code;
+  if(code==='ShiftLeft'||code==='ShiftRight'){shiftHeld=true;if(shiftLocked){shiftLocked=false;updateSLV();}hlK(code,true);e.preventDefault();return;}
+  if(code==='Enter'){doCarriageReturn();hlK('Enter',true);e.preventDefault();return;}
+  if(code==='Backspace'){doBackspace();hlK('Backspace',true);e.preventDefault();return;}
+  if(code==='Tab'){doTab();hlK('Tab',true);e.preventDefault();return;}
+  if(code==='Space'){doSpace();hlK('Space',true);e.preventDefault();return;}
+  if(code==='ArrowUp'){doCursorUp();hlK('ArrowUp',true);e.preventDefault();return;}
+  if(code==='ArrowDown'){doCursorDown();hlK('ArrowDown',true);e.preventDefault();return;}
   const kd=codeToKey[code];
-  if(kd){typeCharacter(isShifted()?kd.u:kd.l);highlightKey(code,true);e.preventDefault();}
+  if(kd){typeCharacter(isShifted()?kd.u:kd.l);hlK(code,true);e.preventDefault();}
 }
-function handleKeyUp(e){
-  const code=e.code;
-  if(code==='ShiftLeft'||code==='ShiftRight'){shiftHeld=false;highlightKey(code,false);return;}
-  highlightKey(code,false);
+function handleKeyUp(e){const code=e.code;
+  if(code==='ShiftLeft'||code==='ShiftRight'){shiftHeld=false;hlK(code,false);return;}
+  hlK(code,false);
 }
 document.addEventListener('keydown',handleKeyDown);
 document.addEventListener('keyup',handleKeyUp);
@@ -308,71 +279,50 @@ document.addEventListener('keyup',handleKeyUp);
 // === SCHEMATIC KEYBOARD ===
 const keyboardArea=document.getElementById('keyboard-area');
 const keyElements={};
-function highlightKey(code,on){
-  const el=keyElements[code];
-  if(el){if(on)el.classList.add('pressed');else el.classList.remove('pressed');}
-}
-function updateShiftLockVisual(){
-  const el=keyElements['ShiftLock'];
-  if(el){if(shiftLocked)el.classList.add('locked');else el.classList.remove('locked');}
-}
-function buildKeyboard(){
+function hlK(code,on){const el=keyElements[code];if(el){if(on)el.classList.add('pressed');else el.classList.remove('pressed');}}
+function updateSLV(){const el=keyElements['ShiftLock'];if(el){if(shiftLocked)el.classList.add('locked');else el.classList.remove('locked');}}
+
+function buildKB(){
   const kb=document.createElement('div');kb.className='keyboard';
-  const r1=mkRow();
-  r1.appendChild(mkSp('BACK\nSPACE','Backspace',1.5));
-  keyRows[0].forEach(k=>r1.appendChild(mkCh(k)));
-  r1.appendChild(mkSp('TAB','Tab',1.5));
-  kb.appendChild(r1);
-  const r2=mkRow();
-  keyRows[1].forEach(k=>r2.appendChild(mkCh(k)));
-  kb.appendChild(r2);
-  const r3=mkRow();
-  r3.appendChild(mkSp('SHIFT\nLOCK','ShiftLock',1.7));
-  keyRows[2].forEach(k=>r3.appendChild(mkCh(k)));
-  r3.appendChild(mkSp('\u21B5','Enter',1.7));
-  kb.appendChild(r3);
-  const r4=mkRow();
-  r4.appendChild(mkSp('SHIFT','ShiftLeft',1.7));
-  keyRows[3].forEach(k=>r4.appendChild(mkCh(k)));
-  r4.appendChild(mkSp('SHIFT','ShiftRight',1.7));
-  r4.appendChild(mkSp('MAR\nREL','MarRel',1.2));
-  kb.appendChild(r4);
-  const r5=mkRow();
-  r5.appendChild(mkSp('','Space',9));
-  kb.appendChild(r5);
-  keyboardArea.innerHTML='';
-  keyboardArea.appendChild(kb);
+  const r1=mkR();r1.appendChild(mkS('BACK\nSPACE','Backspace',1.5));
+  keyRows[0].forEach(k=>r1.appendChild(mkC(k)));r1.appendChild(mkS('TAB','Tab',1.5));kb.appendChild(r1);
+  const r2=mkR();keyRows[1].forEach(k=>r2.appendChild(mkC(k)));kb.appendChild(r2);
+  const r3=mkR();r3.appendChild(mkS('SHIFT\nLOCK','ShiftLock',1.7));
+  keyRows[2].forEach(k=>r3.appendChild(mkC(k)));r3.appendChild(mkS('\u21B5','Enter',1.7));kb.appendChild(r3);
+  const r4=mkR();r4.appendChild(mkS('SHIFT','ShiftLeft',1.7));
+  keyRows[3].forEach(k=>r4.appendChild(mkC(k)));
+  r4.appendChild(mkS('SHIFT','ShiftRight',1.7));r4.appendChild(mkS('MAR\nREL','MarRel',1.2));kb.appendChild(r4);
+  const r5=mkR();r5.appendChild(mkS('','Space',9));kb.appendChild(r5);
+  keyboardArea.innerHTML='';keyboardArea.appendChild(kb);
 }
-function mkRow(){const d=document.createElement('div');d.className='kb-row';return d;}
-function mkCh(kd){
-  const el=document.createElement('div');el.className='key char-key';
+function mkR(){const d=document.createElement('div');d.className='kb-row';return d;}
+function mkC(kd){
+  const el=document.createElement('div');el.className='key ck';
   el.innerHTML='<span class="ku">'+esc(kd.u)+'</span><span class="kl">'+esc(kd.l)+'</span>';
-  el.dataset.code=kd.c; keyElements[kd.c]=el;
-  el.addEventListener('mousedown',e=>{e.preventDefault();el.classList.add('pressed');typeCharacter(isShifted()?kd.u:kd.l);});
+  keyElements[kd.c]=el;
+  const act=()=>typeCharacter(isShifted()?kd.u:kd.l);
+  el.addEventListener('mousedown',e=>{e.preventDefault();el.classList.add('pressed');act();});
   el.addEventListener('mouseup',()=>el.classList.remove('pressed'));
   el.addEventListener('mouseleave',()=>el.classList.remove('pressed'));
-  el.addEventListener('touchstart',e=>{e.preventDefault();el.classList.add('pressed');typeCharacter(isShifted()?kd.u:kd.l);});
+  el.addEventListener('touchstart',e=>{e.preventDefault();el.classList.add('pressed');act();});
   el.addEventListener('touchend',e=>{e.preventDefault();el.classList.remove('pressed');});
   el.addEventListener('touchcancel',()=>el.classList.remove('pressed'));
   return el;
 }
-function mkSp(label,code,wM){
-  const el=document.createElement('div');el.className='key special-key';
+function mkS(label,code,wM){
+  const el=document.createElement('div');el.className='key sk';
   el.style.flex='0 0 '+(wM*2.8)+'em';
   el.innerHTML='<span class="label">'+label.replace('\n','<br>')+'</span>';
-  el.dataset.code=code; keyElements[code]=el;
+  keyElements[code]=el;
   function pr(e){e.preventDefault();el.classList.add('pressed');
-    if(code==='Backspace')doBackspace();
-    else if(code==='Enter')doCarriageReturn();
-    else if(code==='Space')doSpace();
-    else if(code==='Tab')doTab();
+    if(code==='Backspace')doBackspace();else if(code==='Enter')doCarriageReturn();
+    else if(code==='Space')doSpace();else if(code==='Tab')doTab();
     else if(code==='MarRel')doMarginRelease();
-    else if(code==='ShiftLock'){shiftLocked=!shiftLocked;updateShiftLockVisual();}
-    else if(code==='ShiftLeft'||code==='ShiftRight'){shiftHeld=true;if(shiftLocked){shiftLocked=false;updateShiftLockVisual();}}
+    else if(code==='ShiftLock'){shiftLocked=!shiftLocked;updateSLV();}
+    else if(code==='ShiftLeft'||code==='ShiftRight'){shiftHeld=true;if(shiftLocked){shiftLocked=false;updateSLV();}}
   }
   function rl(e){if(e)e.preventDefault();el.classList.remove('pressed');
-    if(code==='ShiftLeft'||code==='ShiftRight')shiftHeld=false;
-  }
+    if(code==='ShiftLeft'||code==='ShiftRight')shiftHeld=false;}
   el.addEventListener('mousedown',pr);el.addEventListener('mouseup',rl);el.addEventListener('mouseleave',rl);
   el.addEventListener('touchstart',pr);el.addEventListener('touchend',rl);el.addEventListener('touchcancel',rl);
   return el;
@@ -384,60 +334,86 @@ document.getElementById('roll-up').addEventListener('mousedown',e=>{e.preventDef
 document.getElementById('roll-up').addEventListener('touchstart',e=>{e.preventDefault();doCursorUp();});
 document.getElementById('roll-down').addEventListener('mousedown',e=>{e.preventDefault();doCursorDown();});
 document.getElementById('roll-down').addEventListener('touchstart',e=>{e.preventDefault();doCursorDown();});
-// Map ArrowUp/Down to keyElements for highlight
 keyElements['ArrowUp']=document.getElementById('roll-up');
 keyElements['ArrowDown']=document.getElementById('roll-down');
-// === RULER (pixel-perfect canvas, aligned to paper) ===
-function drawRuler(rc_canvas){
-  // Ruler spans exactly the paper width: 80 cells = 2480px
-  // Plus 3 extra cells each side = 6*31 = 186px extra
-  const totalW=CANVAS_W+6*CELL_W; // 2666px
-  rc_canvas.width=totalW;
-  rc_canvas.height=RULER_H;
-  const rc=rc_canvas.getContext('2d');
-  rc.fillStyle='#111';
-  rc.fillRect(0,0,totalW,RULER_H);
-  // Position i: -3 to 82. Paper positions 0..79 map to paper columns 1..80
-  // Pixel offset for position i: (i+3)*CELL_W
-  for(let i=-3;i<83;i++){
-    const x=(i+3)*CELL_W;
-    const cx=x+Math.floor(CELL_W/2);
-    const grp=((i%10)+10)%10;
+// === RULER ===
+// Ruler alignment: notch at position N is at pixel N*CELL_W from left edge of paper.
+// So notch 0 = pixel 0 = left edge. Notch 80 = pixel 2480 = right edge.
+// Notch 10 = pixel 310 = border between col 10 and col 11.
+// Extra: 4 notches left of 0, 4 notches right of 80.
+function drawRuler(container,scale){
+  container.innerHTML='';
+  const cellPx=CELL_W*scale;
+  const totalCells=COLS+2*RULER_EXTRA; // 88
+  const totalW=Math.ceil(totalCells*cellPx);
+  const h=RULER_H;
+  const cvs=document.createElement('canvas');
+  // Use 2x for retina clarity
+  const dpr=window.devicePixelRatio||1;
+  cvs.width=Math.ceil(totalW*dpr);cvs.height=Math.ceil(h*dpr);
+  cvs.style.width=totalW+'px';cvs.style.height=h+'px';
+  cvs.className='ruler-canvas';
+  const rc=cvs.getContext('2d');
+  rc.scale(dpr,dpr);
+  rc.fillStyle='#111';rc.fillRect(0,0,totalW,h);
+
+  for(let i=-RULER_EXTRA;i<=COLS+RULER_EXTRA;i++){
+    // Notch at position i is at pixel (i+RULER_EXTRA)*cellPx in the ruler canvas
+    const cx=(i+RULER_EXTRA)*cellPx;
+    const posInTen=((i%10)+10)%10;
     const isMarg=(i===10||i===70);
-    const isOut=(i<0||i>=80);
-    // Notch heights
-    let nh=5;
-    if(grp===0)nh=14;
-    else if(grp===5)nh=10;
+    const isOut=(i<0||i>COLS);
+    // Notch size
+    let nh=Math.max(3,h*0.16);
+    if(posInTen===0)nh=Math.max(8,h*0.45);
+    else if(posInTen===5)nh=Math.max(5,h*0.3);
+    const nw=Math.max(1.5,cellPx*0.07);
     const col=isMarg?'#f44':(isOut?'#444':'#999');
     rc.fillStyle=col;
-    rc.fillRect(cx,RULER_H-nh,1,nh);
-    // Labels at multiples of 10 (printed as "X" where X=i/10)
-    // Format: at pos 0 -> "0", pos 10 -> "1" + notch + "0" etc.
-    // Actually print single digit of tens at the major tick
-    if(grp===0&&i>=0&&i<=80){
-      const digit=(i/10).toString();
-      rc.fillStyle=isMarg?'#f44':'#ccc';
-      rc.font='bold 10px sans-serif';
-      rc.textAlign='center';
-      rc.textBaseline='bottom';
-      rc.fillText(digit,cx,RULER_H-nh-1);
+    rc.fillRect(cx-nw/2,h-nh,nw,nh);
+    // Labels: full number "0","10","20"..."80" SPLIT across notch
+    // Digit left of notch + notch + digit right of notch for 2-digit
+    // For "0": just center at notch
+    if(posInTen===0&&i>=0&&i<=COLS){
+      const lbl=i.toString();
+      const fontSize=Math.max(7,cellPx*0.38);
+      rc.font='bold '+fontSize+'px sans-serif';
+      rc.fillStyle=isMarg?'#f44':'#ddd';
+      if(lbl.length===1){
+        // Single digit: center on notch
+        rc.textAlign='center';rc.textBaseline='bottom';
+        rc.fillText(lbl,cx,h-nh+fontSize*0.85);
+      }else{
+        // Two digits: split across notch. First digit left, second right.
+        rc.textAlign='right';rc.textBaseline='bottom';
+        rc.fillText(lbl[0],cx-nw/2-1,h-nh+fontSize*0.85);
+        rc.textAlign='left';
+        rc.fillText(lbl[1],cx+nw/2+1,h-nh+fontSize*0.85);
+      }
     }
   }
+  // Position: paper left edge corresponds to ruler position 0
+  // Ruler position 0 is at offset RULER_EXTRA*cellPx from left of ruler canvas
+  // Paper absolute left = ROLL_W + paperLeft (paperLeft is margin inside viewport)
+  const paperLeft=parseFloat(paperWrap.style.marginLeft)||0;
+  const paperAbsLeft=ROLL_W*1+paperLeft; // roll buttons offset
+  const rulerOffset=paperAbsLeft-RULER_EXTRA*cellPx;
+  cvs.style.left=Math.round(rulerOffset)+'px';
+  container.appendChild(cvs);
 }
-
 // === LAYOUT ===
 function layout(){
-  const appW=window.innerWidth, appH=window.innerHeight;
-  const kbH=Math.max(150,Math.floor(appH*0.32));
-  const npH=36;
-  const canvasH=appH-kbH-npH;
-  canvasArea.style.height=canvasH+'px';
+  const appW=window.innerWidth,appH=window.innerHeight;
+  const kbH=Math.max(140,Math.floor(appH*0.32));
+  const npH=42;
+  const caH=appH-kbH-npH;
+  document.getElementById('canvas-area').style.height=caH+'px';
   document.getElementById('keyboard-area').style.height=kbH+'px';
   document.getElementById('nameplate').style.height=npH+'px';
 
-  // Scale: fit paper width in available space
-  const availW=appW-60; // gray margins
+  const rollW=ROLL_W;
+  const scrollW=12;
+  const availW=appW-rollW-scrollW-40;
   const scale=Math.min(availW/CANVAS_W,1);
   currentScale=scale;
   const spW=CANVAS_W*scale;
@@ -450,112 +426,84 @@ function layout(){
 
   paperWrap.style.width=spW+'px';
   paperWrap.style.height=(spH+2*PAPER_PAD)+'px';
-  topPad.style.height=PAPER_PAD+'px';
-  bottomPad.style.height=PAPER_PAD+'px';
+  padTop.style.height=PAPER_PAD+'px';
+  padBottom.style.height=PAPER_PAD+'px';
 
-  const vpH=canvasH-2*RULER_H;
+  const vpH=caH-2*RULER_H;
   viewport.style.height=vpH+'px';
 
-  // Rulers at native pixel size, scaled with CSS
-  drawRuler(rulerTopCanvas);
-  drawRuler(rulerBottomCanvas);
-  const rulerTotalW=CANVAS_W+6*CELL_W;
-  const scaledRulerW=rulerTotalW*scale;
-  rulerTopCanvas.style.width=scaledRulerW+'px';
-  rulerTopCanvas.style.height=RULER_H+'px';
-  rulerBottomCanvas.style.width=scaledRulerW+'px';
-  rulerBottomCanvas.style.height=RULER_H+'px';
-  // Align rulers: position 0 of ruler = left edge of paper
-  // Ruler has 3 extra cells on left, so offset ruler left by 3*CELL_W*scale
-  const paperLeft=(appW-spW)/2;
-  const rulerLeft=paperLeft-3*CELL_W*scale;
-  rulerTopCanvas.style.marginLeft=Math.max(0,rulerLeft)+'px';
-  rulerBottomCanvas.style.marginLeft=Math.max(0,rulerLeft)+'px';
-
-  // Paper centering
+  const vpAvailW=appW-rollW-scrollW;
+  const paperLeft=Math.max(10,Math.round((vpAvailW-spW)/2));
   paperWrap.style.marginLeft=paperLeft+'px';
 
-  // Keyboard width ~ paper width
+  drawRuler(document.getElementById('ruler-top'),scale);
+  drawRuler(document.getElementById('ruler-bottom'),scale);
+
   const kbInner=keyboardArea.querySelector('.keyboard');
-  if(kbInner)kbInner.style.maxWidth=Math.min(spW+40,appW-10)+'px';
+  if(kbInner)kbInner.style.maxWidth=Math.min(spW+60,appW-20)+'px';
 }
-// === INIT ===
-function init(){
-  buildKeyboard();
-  layout();
-  updateCursor();
+
+function init(){buildKB();layout();updateCursor();
   window.addEventListener('resize',()=>{layout();updateCursor();});
 }
 init();
 })();
 </script>
 <style>
-#canvas-area{flex:1;overflow:hidden;display:flex;flex-direction:column;align-items:stretch;background:#2a2a2a}
-#vp-row{flex:1;display:flex;align-items:stretch;overflow:hidden}
-#paper-viewport{flex:1;overflow-y:auto;overflow-x:hidden;
-  scrollbar-width:thin;scrollbar-color:#555 #2a2a2a}
-#paper-viewport::-webkit-scrollbar{width:10px}
-#paper-viewport::-webkit-scrollbar-track{background:#2a2a2a}
-#paper-viewport::-webkit-scrollbar-thumb{background:#555;border-radius:4px}
-#paper-wrap{position:relative}
-.paper-pad{background:#2a2a2a;width:100%}
-#paper-container{position:relative;background:#fff;box-shadow:0 2px 20px rgba(0,0,0,0.5)}
-#typing-canvas{display:block;background:#fff}
-#cursor{position:absolute;background:rgba(0,0,0,0.75);pointer-events:none;animation:blink 1s step-end infinite}
-@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
-#cursor.red{background:rgba(200,0,0,0.85)}
-canvas{display:block;flex-shrink:0;image-rendering:pixelated}
 /* Roll buttons */
-#roll-buttons{width:32px;display:flex;flex-direction:column;align-items:center;
-  justify-content:center;gap:8px;background:#222;flex-shrink:0}
-#roll-buttons button{width:26px;height:26px;border:1px solid #555;background:#333;
-  color:#aaa;font-size:12px;cursor:pointer;border-radius:3px;display:flex;
-  align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent}
+#roll-buttons{width:36px;display:flex;flex-direction:column;align-items:center;
+justify-content:space-between;padding:20px 0;background:#222;flex-shrink:0}
+#roll-buttons button{width:28px;height:28px;border:1px solid #555;background:#333;
+color:#aaa;font-size:13px;cursor:pointer;border-radius:4px;display:flex;
+align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent;outline:none}
 #roll-buttons button:active,#roll-buttons button.pressed{background:#666;color:#fff}
 /* Nameplate */
 #nameplate{background:#3d3d3d;display:flex;align-items:center;justify-content:center;
-  border-top:1px solid #555;border-bottom:1px solid #222;flex-shrink:0;
-  padding:6px 0;gap:12px}
-.np-text{font-family:'Georgia',serif;font-style:italic;font-size:14px;
-  color:#c0b090;letter-spacing:3px;text-shadow:1px 1px 2px rgba(0,0,0,0.5);
-  background:linear-gradient(to bottom,#4a4a4a,#2a2a2a);
-  padding:4px 24px;border-radius:12px;border:1px solid #555}
+border-top:1px solid #555;border-bottom:1px solid #222;flex-shrink:0;padding:6px 0}
+.np-plate{display:inline-flex;align-items:center;gap:8px;
+background:linear-gradient(to bottom,#4a4a4a,#2a2a2a);
+padding:6px 20px;border-radius:14px;border:1px solid #555;position:relative}
+.np-text{font-family:Georgia,serif;font-style:italic;font-size:14px;
+color:#c0b090;letter-spacing:3px;text-shadow:1px 1px 2px rgba(0,0,0,0.5)}
 .np-screw{display:inline-block;width:10px;height:10px;border-radius:50%;
-  background:radial-gradient(circle at 3px 3px,#999,#444);
-  border:1px solid #333;box-shadow:inset 0 1px 2px rgba(255,255,255,0.2)}
-.np-screw::after{content:'';display:block;width:6px;height:1px;
-  background:#222;margin:4px auto 0;border-radius:1px}
+background:radial-gradient(circle at 3px 3px,#aaa,#444);
+border:1px solid #333;box-shadow:inset 0 1px 2px rgba(255,255,255,0.2),0 1px 2px rgba(0,0,0,0.4);
+position:relative;overflow:hidden}
+.np-screw::after{content:'';position:absolute;top:50%;left:50%;width:6px;height:1.5px;
+background:#222;border-radius:1px;transform:translate(-50%,-50%)}
 /* Keyboard */
 #keyboard-area{background:#5ab4ac;display:flex;align-items:center;
-  justify-content:center;padding:6px;flex-shrink:0;border-top:3px solid #3d8c85}
+justify-content:center;padding:5px;flex-shrink:0;border-top:3px solid #3d8c85}
 .keyboard{display:flex;flex-direction:column;gap:3px;align-items:center;width:100%}
 .kb-row{display:flex;gap:2px;justify-content:center;width:100%}
-.key{height:2.4em;min-width:2.4em;border-radius:50%;background:#f5f0e8;
-  border:2px solid #999;display:flex;flex-direction:column;align-items:center;
-  justify-content:center;cursor:pointer;font-size:10px;
-  font-family:'Courier New',monospace;font-weight:bold;color:#222;
-  box-shadow:1px 2px 3px rgba(0,0,0,0.3);transition:background .05s,transform .05s;
-  flex:0 0 2.4em;-webkit-tap-highlight-color:transparent}
+.key{height:2.3em;min-width:2.3em;border-radius:50%;background:#f5f0e8;
+border:2px solid #999;display:flex;flex-direction:column;align-items:center;
+justify-content:center;cursor:pointer;font-size:10px;
+font-family:'Courier New',monospace;font-weight:bold;color:#222;
+box-shadow:1px 2px 3px rgba(0,0,0,0.3);transition:background .05s,transform .05s;
+flex:0 0 2.3em;-webkit-tap-highlight-color:transparent}
 .key .ku{font-size:7px;color:#555;line-height:1}
 .key .kl{font-size:11px;line-height:1}
 .key.pressed,.key:active{background:#333;color:#fff;transform:translateY(2px);box-shadow:0 0 2px rgba(0,0,0,.5)}
 .key.pressed .ku,.key.pressed .kl{color:#fff}
 .key.locked{background:#ff6;border-color:#cc0}
-.key.mar-active{background:#fcc;border-color:#f44}
+.key.mar-active{background:#fcc;border-color:#f44;animation:pulse-mar .4s ease}
 .key.mar-active .label{color:#c00}
-.special-key{border-radius:5px;font-size:8px;min-width:2.8em}
-.special-key .label{text-align:center;line-height:1.1}
+@keyframes pulse-mar{0%{transform:scale(1)}50%{transform:scale(1.05)}100%{transform:scale(1)}}
+.sk{border-radius:5px;font-size:8px;min-width:2.6em}
+.sk .label{text-align:center;line-height:1.1}
 @media(max-width:768px){
-  .key{height:2em;min-width:2em;flex:0 0 2em;font-size:8px}
-  .key .ku{font-size:6px}.key .kl{font-size:9px}
-  .special-key{font-size:6px}.kb-row{gap:1px}.keyboard{gap:2px}
-  #keyboard-area{padding:3px}#nameplate{padding:4px 0}
+.key{height:2em;min-width:2em;flex:0 0 2em;font-size:8px}
+.key .ku{font-size:6px}.key .kl{font-size:9px}
+.sk{font-size:6px}.kb-row{gap:1px}.keyboard{gap:2px}
+#keyboard-area{padding:3px}
 }
 @media(max-width:480px){
-  .key{height:1.6em;min-width:1.6em;flex:0 0 1.6em;font-size:6px}
-  .key .ku{font-size:5px}.key .kl{font-size:7px}
-  .special-key{font-size:5px}.kb-row{gap:1px}
-  #roll-buttons{width:24px}#roll-buttons button{width:20px;height:20px;font-size:9px}
+.key{height:1.5em;min-width:1.5em;flex:0 0 1.5em;font-size:6px}
+.key .ku{font-size:5px}.key .kl{font-size:7px}
+.sk{font-size:5px}
+#roll-buttons{width:26px;padding:10px 0}
+#roll-buttons button{width:22px;height:22px;font-size:10px}
 }
 </style>
 </body>
