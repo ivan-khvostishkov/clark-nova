@@ -6,6 +6,11 @@
 <title>Clark Nova Typewriter by NoSocial.Net</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='4' fill='%233d3d3d'/%3E%3Ctext x='16' y='22' font-family='Georgia,serif' font-size='18' font-style='italic' font-weight='bold' fill='%23c0b090' text-anchor='middle'%3ECN%3C/text%3E%3C/svg%3E">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 180 180'%3E%3Crect width='180' height='180' rx='22' fill='%233d3d3d'/%3E%3Ctext x='90' y='120' font-family='Georgia,serif' font-size='100' font-style='italic' font-weight='bold' fill='%23c0b090' text-anchor='middle'%3ECN%3C/text%3E%3C/svg%3E">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#5ab4ac">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&family=Special+Elite&family=EB+Garamond:ital,wght@1,500;1,700&display=swap" rel="stylesheet">
 <style>
@@ -607,6 +612,8 @@ function init(){buildKB();layout();updateCursor();
 // Wait for Special Elite font to fully load before enabling typing
 document.fonts.load('28px "Special Elite"').then(()=>{fontsReady=true;init();}).catch(()=>{fontsReady=true;init();});
 })();
+// Register service worker
+if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(()=>{});}
 </script>
 <style>
 /* Nameplate */
