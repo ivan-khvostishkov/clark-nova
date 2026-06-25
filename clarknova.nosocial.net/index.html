@@ -4,10 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
 <title>Clark Nova Typewriter by NoSocial.Net</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&family=Special+Elite&display=swap" rel="stylesheet">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{width:100%;height:100%;overflow:hidden;background:#1a1a1a;
-font-family:monospace;touch-action:none;user-select:none;-webkit-user-select:none}
+font-family:'Courier Prime','Courier New',monospace;touch-action:none;user-select:none;-webkit-user-select:none}
 #app{width:100%;height:100%;display:flex;flex-direction:column}
 #canvas-area{flex:1;overflow:hidden;display:flex;flex-direction:column;align-items:stretch;background:#2a2a2a;position:relative}
 #vp-row{flex:1;display:flex;align-items:stretch;overflow:hidden;position:relative}
@@ -16,17 +19,17 @@ font-family:monospace;touch-action:none;user-select:none;-webkit-user-select:non
 #paper-inner{position:absolute;top:0;left:0;transform-origin:0 0}
 #paper-container{position:relative;background:#fff;box-shadow:0 2px 20px rgba(0,0,0,0.5);
 width:2480px;height:3508px}
-#typing-canvas{display:block;width:2480px;height:3508px}
+#typing-canvas{display:block;width:2480px;height:3508px;image-rendering:auto}
 #cursor{position:absolute;background:rgba(0,0,0,0.75);pointer-events:none;animation:blink 1s step-end infinite}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
 #cursor.red{background:rgba(200,0,0,0.85)}
 .ruler-wrap{height:28px;background:#111;flex-shrink:0;overflow:hidden;position:relative}
 .ruler-canvas{display:block;position:absolute;top:0}
-#roll-col{width:28px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:40px;background:#222;flex-shrink:0}
-.roll-btn{width:0;height:0;cursor:pointer;border:10px solid transparent;-webkit-tap-highlight-color:transparent}
-#roll-up{border-bottom:14px solid #888;border-top:none}
-#roll-down{border-top:14px solid #888;border-bottom:none}
-.roll-btn:active,.roll-btn.pressed{filter:brightness(1.8)}
+.roll-col{width:28px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:30px;background:#222;flex-shrink:0}
+.roll-btn{width:0;height:0;cursor:pointer;border:9px solid transparent;-webkit-tap-highlight-color:transparent}
+.roll-up{border-bottom:12px solid #e8e4dc;border-top:none}
+.roll-down{border-top:12px solid #e8e4dc;border-bottom:none}
+.roll-btn:active,.roll-btn.pressed{filter:brightness(0.7)}
 </style>
 </head>
 <body>
@@ -34,11 +37,12 @@ width:2480px;height:3508px}
 <div id="canvas-area">
 <div id="ruler-top" class="ruler-wrap"></div>
 <div id="vp-row">
-<div id="roll-col"><div id="roll-up" class="roll-btn"></div><div id="roll-down" class="roll-btn"></div></div>
+<div class="roll-col"><div class="roll-btn roll-up" data-dir="up"></div><div class="roll-btn roll-down" data-dir="down"></div></div>
 <div id="paper-viewport"><div id="paper-inner"><div id="paper-container">
 <canvas id="typing-canvas" width="2480" height="3508"></canvas>
 <div id="cursor"></div>
 </div></div></div>
+<div class="roll-col"><div class="roll-btn roll-up" data-dir="up"></div><div class="roll-btn roll-down" data-dir="down"></div></div>
 </div>
 <div id="ruler-bottom" class="ruler-wrap"></div>
 </div>
@@ -76,48 +80,81 @@ const paperInner=document.getElementById('paper-inner');
 // === CANVAS INIT ===
 ctx.fillStyle='#ffffff';ctx.fillRect(0,0,CANVAS_W,CANVAS_H);
 const wm=[[620,877],[1860,877],[620,2631],[1860,2631]];
-ctx.font='bold 48px Courier New,Courier,monospace';
+ctx.font='bold 48px "Courier Prime",Courier,monospace';
 ctx.fillStyle='rgba(254,254,254,1)';ctx.textAlign='center';ctx.textBaseline='middle';
 wm.forEach(([x,y])=>{ctx.fillText('Clark Nova',x,y);ctx.fillText('by NoSocial.Net',x,y+56);});
 ctx.textAlign='start';ctx.textBaseline='alphabetic';
 
 // === AUDIO ===
 function getAC(){if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();return audioCtx;}
+// Hammer strike (printable chars only)
 function playKeystroke(){
   try{const ac=getAC(),t=ac.currentTime,sr=ac.sampleRate;
-  const buf=ac.createBuffer(1,Math.floor(sr*0.035),sr);
-  const d=buf.getChannelData(0);
+  const buf=ac.createBuffer(1,Math.floor(sr*0.035),sr);const d=buf.getChannelData(0);
   for(let i=0;i<d.length;i++){const env=Math.exp(-i/(sr*0.006));
     d[i]=env*(Math.random()*2-1)*0.5+env*0.25*Math.sin(i*2*Math.PI*4500/sr);}
-  const src=ac.createBufferSource();src.buffer=buf;src.connect(ac.destination);src.start(t);
-  }catch(e){}
+  const src=ac.createBufferSource();src.buffer=buf;src.connect(ac.destination);src.start(t);}catch(e){}
 }
 function playBell(){
   try{const ac=getAC(),t=ac.currentTime;
   const osc=ac.createOscillator(),g=ac.createGain();
   osc.type='sine';osc.frequency.setValueAtTime(2400,t);
   g.gain.setValueAtTime(0.3,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.6);
-  osc.connect(g);g.connect(ac.destination);osc.start(t);osc.stop(t+0.6);
-  }catch(e){}
+  osc.connect(g);g.connect(ac.destination);osc.start(t);osc.stop(t+0.6);}catch(e){}
 }
+// CR: Hrrr-r-r-r boom (saw rattle + hard stop)
 function playCR(){
   try{const ac=getAC(),t=ac.currentTime,sr=ac.sampleRate;
-  const buf=ac.createBuffer(1,Math.floor(sr*0.22),sr);const d=buf.getChannelData(0);
+  const buf=ac.createBuffer(1,Math.floor(sr*0.35),sr);const d=buf.getChannelData(0);
   for(let i=0;i<d.length;i++){const p=i/d.length;
-    const env=p<0.05?p*20:(p<0.7?1:Math.exp(-(p-0.7)*8));
-    d[i]=env*((Math.random()*2-1)*0.15+0.12*Math.sin(i*2*Math.PI*80/sr)+0.05*Math.sin(i*2*Math.PI*(200+p*80)/sr));}
+    const env=p<0.05?p*20:(p<0.8?1.0:0);
+    const saw=Math.sin(i*2*Math.PI*55/sr)*0.15;
+    const rattle=(Math.random()*2-1)*0.2*Math.sin(i*2*Math.PI*(250+p*100)/sr);
+    d[i]=env*(saw+rattle*(0.5+p*0.5));
+    if(p>0.78&&p<0.88){d[i]+=0.5*Math.exp(-(p-0.78)*25)*Math.sin(i*2*Math.PI*90/sr);}
+    if(p>0.82){d[i]+=Math.exp(-(p-0.82)*18)*0.3*(Math.random()*2-1);}
+  }
   const src=ac.createBufferSource();src.buffer=buf;
-  const f=ac.createBiquadFilter();f.type='lowpass';f.frequency.value=1200;
+  const f=ac.createBiquadFilter();f.type='lowpass';f.frequency.value=1500;
   src.connect(f);f.connect(ac.destination);src.start(t);}catch(e){}
 }
+// Space/backspace/tab: short carriage slide
+function playSlide(){
+  try{const ac=getAC(),t=ac.currentTime,sr=ac.sampleRate;
+  const buf=ac.createBuffer(1,Math.floor(sr*0.06),sr);const d=buf.getChannelData(0);
+  for(let i=0;i<d.length;i++){const env=Math.exp(-i/(sr*0.018));
+    d[i]=env*((Math.random()*2-1)*0.1+0.07*Math.sin(i*2*Math.PI*110/sr));}
+  const src=ac.createBufferSource();src.buffer=buf;
+  const f=ac.createBiquadFilter();f.type='lowpass';f.frequency.value=800;
+  src.connect(f);f.connect(ac.destination);src.start(t);}catch(e){}
+}
+// Roll drum: short Hr-r-r
 function playRoll(){
   try{const ac=getAC(),t=ac.currentTime,sr=ac.sampleRate;
-  const buf=ac.createBuffer(1,Math.floor(sr*0.07),sr);const d=buf.getChannelData(0);
-  for(let i=0;i<d.length;i++){const env=Math.exp(-i/(sr*0.02));
-    d[i]=env*((Math.random()*2-1)*0.12+0.06*Math.sin(i*2*Math.PI*150/sr));}
+  const buf=ac.createBuffer(1,Math.floor(sr*0.1),sr);const d=buf.getChannelData(0);
+  for(let i=0;i<d.length;i++){const p=i/d.length;
+    const env=p<0.1?p*10:Math.exp(-(p-0.1)*5);
+    d[i]=env*((Math.random()*2-1)*0.08+0.06*Math.sin(i*2*Math.PI*85/sr));}
   const src=ac.createBufferSource();src.buffer=buf;
   const f=ac.createBiquadFilter();f.type='lowpass';f.frequency.value=500;
   src.connect(f);f.connect(ac.destination);src.start(t);}catch(e){}
+}
+// Shift/lock: soft click
+function playClick(){
+  try{const ac=getAC(),t=ac.currentTime,sr=ac.sampleRate;
+  const buf=ac.createBuffer(1,Math.floor(sr*0.015),sr);const d=buf.getChannelData(0);
+  for(let i=0;i<d.length;i++){d[i]=Math.exp(-i/(sr*0.003))*(Math.random()*2-1)*0.15;}
+  const src=ac.createBufferSource();src.buffer=buf;src.connect(ac.destination);src.start(t);}catch(e){}
+}
+// Margin release: click + hollow ding
+function playMarRel(){
+  try{const ac=getAC(),t=ac.currentTime;
+  playClick();
+  const osc=ac.createOscillator(),g=ac.createGain();
+  osc.type='sine';osc.frequency.setValueAtTime(1800,t+0.015);
+  g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(0.1,t+0.02);
+  g.gain.exponentialRampToValueAtTime(0.001,t+0.18);
+  osc.connect(g);g.connect(ac.destination);osc.start(t+0.015);osc.stop(t+0.18);}catch(e){}
 }
 // === CHARACTER MAP ===
 const keyRows=[
@@ -190,9 +227,18 @@ function typeCharacter(ch){
   if(!canType())return;
   const x=(cursorCol-1)*CELL_W;
   const y=GRID_TOP+(cursorRow-1)*CELL_H;
-  ctx.font='26px "Courier New",Courier,monospace';
-  ctx.fillStyle='#0a0a1a';ctx.textBaseline='top';
-  ctx.fillText(ch,x+5,y+10);
+  // Ink-on-paper effect: shadow for bleed, then crisp text
+  ctx.save();
+  ctx.shadowColor='rgba(10,10,30,0.3)';
+  ctx.shadowBlur=1.2;
+  ctx.shadowOffsetX=0.4;ctx.shadowOffsetY=0.4;
+  ctx.font='28px "Special Elite","Courier Prime",monospace';
+  ctx.fillStyle='#0a0a1e';ctx.textBaseline='top';
+  ctx.fillText(ch,x+3,y+9);
+  ctx.restore();
+  ctx.font='28px "Special Elite","Courier Prime",monospace';
+  ctx.fillStyle='#0a0a1e';ctx.textBaseline='top';
+  ctx.fillText(ch,x+3,y+9);
   playKeystroke();
   if(cursorCol>=HARD_RIGHT){updateCursor();return;}
   const oc=cursorCol;cursorCol++;
@@ -200,14 +246,14 @@ function typeCharacter(ch){
   checkBell(oc,cursorCol);updateCursor();panToCursor();
 }
 function doSpace(){
-  if(!canType())return;playKeystroke();
+  if(!canType())return;playSlide();
   if(cursorCol>=HARD_RIGHT){updateCursor();return;}
   const oc=cursorCol;cursorCol++;
   if(cursorCol>RIGHT_MARGIN&&!marginReleased)cursorCol=RIGHT_MARGIN+1;
   checkBell(oc,cursorCol);updateCursor();panToCursor();
 }
 function doTab(){
-  if(!canType())return;playKeystroke();
+  if(!canType())return;playSlide();
   if(cursorCol>=HARD_RIGHT){updateCursor();return;}
   const oc=cursorCol;
   let t=Math.floor((cursorCol-1)/5)*5+6;
@@ -216,14 +262,14 @@ function doTab(){
   if(t>RIGHT_MARGIN&&!marginReleased)t=RIGHT_MARGIN+1;
   cursorCol=t;checkBell(oc,cursorCol);updateCursor();panToCursor();
 }
-function doBackspace(){if(cursorCol>1){cursorCol--;updateCursor();panToCursor();}}
+function doBackspace(){if(cursorCol>1){cursorCol--;playSlide();updateCursor();panToCursor();}}
 function doCR(){
   if(cursorRow>=ROWS)return;
   cursorRow++;cursorCol=INITIAL_COL;marginReleased=false;
   playCR();updateCursor();panToCursor();
 }
 function doMarRel(){
-  if(cursorCol>RIGHT_MARGIN&&!marginReleased){marginReleased=true;updateCursor();}
+  if(cursorCol>RIGHT_MARGIN&&!marginReleased){marginReleased=true;playMarRel();updateCursor();}
 }
 function doUp(){if(cursorRow>1){cursorRow--;playRoll();updateCursor();panToCursor();}}
 function doDown(){if(cursorRow<ROWS){cursorRow++;playRoll();updateCursor();panToCursor();}}
@@ -231,7 +277,7 @@ function doDown(){if(cursorRow<ROWS){cursorRow++;playRoll();updateCursor();panTo
 // === KEYBOARD INPUT ===
 function handleKeyDown(e){
   if(e.repeat)return;const c=e.code;
-  if(c==='ShiftLeft'||c==='ShiftRight'){shiftHeld=true;if(shiftLocked){shiftLocked=false;uSL();}hlK(c,1);e.preventDefault();return;}
+  if(c==='ShiftLeft'||c==='ShiftRight'){shiftHeld=true;playClick();if(shiftLocked){shiftLocked=false;uSL();}hlK(c,1);e.preventDefault();return;}
   if(c==='Enter'){doCR();hlK('Enter',1);e.preventDefault();return;}
   if(c==='Backspace'){doBackspace();hlK('Backspace',1);e.preventDefault();return;}
   if(c==='Tab'){doTab();hlK('Tab',1);e.preventDefault();return;}
@@ -248,7 +294,17 @@ document.addEventListener('keyup',handleKeyUp);
 // === SCHEMATIC KEYBOARD ===
 const keyboardArea=document.getElementById('keyboard-area');
 const keyElements={};
-function hlK(c,on){const el=keyElements[c];if(el){if(on)el.classList.add('pressed');else el.classList.remove('pressed');}}
+function hlK(c,on){
+  const el=keyElements[c];if(el){if(on)el.classList.add('pressed');else el.classList.remove('pressed');}
+  // Sync both shifts visually
+  if(c==='ShiftLeft'||c==='ShiftRight'){
+    const other=c==='ShiftLeft'?keyElements['ShiftRight']:keyElements['ShiftLeft'];
+    if(other){if(on)other.classList.add('pressed');else other.classList.remove('pressed');}
+  }
+  // Sync both roll button pairs
+  if(c==='ArrowUp'){document.querySelectorAll('.roll-up').forEach(e=>{if(on)e.classList.add('pressed');else e.classList.remove('pressed');});}
+  if(c==='ArrowDown'){document.querySelectorAll('.roll-down').forEach(e=>{if(on)e.classList.add('pressed');else e.classList.remove('pressed');});}
+}
 function uSL(){const el=keyElements['ShiftLock'];if(el){if(shiftLocked)el.classList.add('locked');else el.classList.remove('locked');}}
 function buildKB(){
   const kb=document.createElement('div');kb.className='keyboard';
@@ -260,7 +316,7 @@ function buildKB(){
   const r4=mkR();r4.appendChild(mkS('\u21E7','ShiftLeft',1.6));
   keyRows[3].forEach(k=>r4.appendChild(mkC(k)));
   r4.appendChild(mkS('\u21E7','ShiftRight',1.6));r4.appendChild(mkS('MR','MarRel',1.1));kb.appendChild(r4);
-  const r5=mkR();r5.appendChild(mkS('','Space',8));kb.appendChild(r5);
+  const r5=mkR();const spKey=mkS('','Space',8);spKey.style.flex='1 1 45%';spKey.style.maxWidth='45%';spKey.style.borderRadius='6px';spKey.style.aspectRatio='auto';spKey.style.height='34px';kb.appendChild(r5);r5.appendChild(spKey);
   keyboardArea.innerHTML='';keyboardArea.appendChild(kb);
 }
 function mkR(){const d=document.createElement('div');d.className='kb-row';return d;}
@@ -288,23 +344,37 @@ function mkS(label,code,wM){
     if(code==='Backspace')doBackspace();else if(code==='Enter')doCR();
     else if(code==='Space')doSpace();else if(code==='Tab')doTab();
     else if(code==='MarRel')doMarRel();
-    else if(code==='ShiftLock'){shiftLocked=!shiftLocked;uSL();}
-    else if(code==='ShiftLeft'||code==='ShiftRight'){shiftHeld=true;if(shiftLocked){shiftLocked=false;uSL();}}
+    else if(code==='ShiftLock'){shiftLocked=true;uSL();playClick();}
+    else if(code==='ShiftLeft'||code==='ShiftRight'){shiftHeld=true;playClick();hlK(code,1);if(shiftLocked){shiftLocked=false;uSL();}}
   }
   function rl(e){if(e)e.preventDefault();el.classList.remove('pressed');
-    if(code==='ShiftLeft'||code==='ShiftRight')shiftHeld=false;}
+    if(code==='ShiftLeft'||code==='ShiftRight'){shiftHeld=false;hlK(code,0);}}
   el.addEventListener('mousedown',pr);el.addEventListener('mouseup',rl);el.addEventListener('mouseleave',rl);
   el.addEventListener('touchstart',pr,{passive:false});el.addEventListener('touchend',rl,{passive:false});el.addEventListener('touchcancel',rl);
   return el;
 }
 function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
-// Roll buttons
-document.getElementById('roll-up').addEventListener('mousedown',e=>{e.preventDefault();doUp();});
-document.getElementById('roll-up').addEventListener('touchstart',e=>{e.preventDefault();doUp();},{passive:false});
-document.getElementById('roll-down').addEventListener('mousedown',e=>{e.preventDefault();doDown();});
-document.getElementById('roll-down').addEventListener('touchstart',e=>{e.preventDefault();doDown();},{passive:false});
-keyElements['ArrowUp']=document.getElementById('roll-up');
-keyElements['ArrowDown']=document.getElementById('roll-down');
+// Roll buttons (both sides, synced visually)
+document.querySelectorAll('.roll-up').forEach(el=>{
+  el.addEventListener('mousedown',e=>{e.preventDefault();doUp();
+    document.querySelectorAll('.roll-up').forEach(b=>b.classList.add('pressed'));});
+  el.addEventListener('mouseup',()=>document.querySelectorAll('.roll-up').forEach(b=>b.classList.remove('pressed')));
+  el.addEventListener('mouseleave',()=>document.querySelectorAll('.roll-up').forEach(b=>b.classList.remove('pressed')));
+  el.addEventListener('touchstart',e=>{e.preventDefault();doUp();
+    document.querySelectorAll('.roll-up').forEach(b=>b.classList.add('pressed'));},{passive:false});
+  el.addEventListener('touchend',e=>{e.preventDefault();document.querySelectorAll('.roll-up').forEach(b=>b.classList.remove('pressed'));},{passive:false});
+});
+document.querySelectorAll('.roll-down').forEach(el=>{
+  el.addEventListener('mousedown',e=>{e.preventDefault();doDown();
+    document.querySelectorAll('.roll-down').forEach(b=>b.classList.add('pressed'));});
+  el.addEventListener('mouseup',()=>document.querySelectorAll('.roll-down').forEach(b=>b.classList.remove('pressed')));
+  el.addEventListener('mouseleave',()=>document.querySelectorAll('.roll-down').forEach(b=>b.classList.remove('pressed')));
+  el.addEventListener('touchstart',e=>{e.preventDefault();doDown();
+    document.querySelectorAll('.roll-down').forEach(b=>b.classList.add('pressed'));},{passive:false});
+  el.addEventListener('touchend',e=>{e.preventDefault();document.querySelectorAll('.roll-down').forEach(b=>b.classList.remove('pressed'));},{passive:false});
+});
+keyElements['ArrowUp']=document.querySelector('.roll-up');
+keyElements['ArrowDown']=document.querySelector('.roll-down');
 // === RULERS (drawn at display resolution) ===
 function drawRulers(){
   drawRuler(document.getElementById('ruler-top'));
@@ -352,9 +422,9 @@ function drawRuler(container){
     }
   }
   // Position: ruler notch 0 must align with paper left edge on screen.
-  // Paper left on screen = ROLL_W + viewX (paperInner is at viewX in viewport)
-  // Ruler notch 0 in ruler canvas = extra*cellPx from left
-  const paperScreenLeft=ROLL_W+viewX;
+  // Paper is inside viewport, which is between two roll columns (28px each).
+  // Paper left on screen = 28 (left roll col) + viewX
+  const paperScreenLeft=28+viewX;
   const rulerOffset=paperScreenLeft-extra*cellPx;
   cvs.style.left=Math.round(rulerOffset)+'px';
   container.appendChild(cvs);
@@ -419,18 +489,27 @@ function zoomAt(px,py,factor){
   viewX=px-(px-viewX)*(newScale/viewScale);
   viewY=py-(py-viewY)*(newScale/viewScale);
   viewScale=newScale;
+  // After zoom, center horizontally if paper fits in viewport
+  const vpW=viewport.clientWidth;
+  const pw=CANVAS_W*viewScale;
+  if(pw<=vpW){
+    viewX=Math.round((vpW-pw)/2);
+  }
   clampView();applyView();
 }
 
 function clampView(){
   const vpW=viewport.clientWidth,vpH=viewport.clientHeight;
   const pw=CANVAS_W*viewScale,ph=CANVAS_H*viewScale;
-  // Allow some overshoot but keep at least some paper visible
-  const margin=50;
-  if(viewX>margin)viewX=margin;
-  if(viewX<vpW-pw-margin)viewX=vpW-pw-margin;
-  if(viewY>margin)viewY=margin;
-  if(viewY<vpH-ph-margin)viewY=vpH-ph-margin;
+  // Allow dragging paper anywhere as long as some part is visible
+  // But default center when zoomed out
+  const maxX=vpW-20; // can push paper almost fully off to right
+  const minX=-(pw-20); // can push paper almost fully off to left
+  if(viewX>maxX)viewX=maxX;
+  if(viewX<minX)viewX=minX;
+  // Vertical: keep some paper visible
+  if(viewY>50)viewY=50;
+  if(viewY<vpH-ph-50)viewY=vpH-ph-50;
 }
 // === LAYOUT ===
 function layout(){
@@ -442,11 +521,11 @@ function layout(){
   document.getElementById('keyboard-area').style.height=kbH+'px';
   document.getElementById('nameplate').style.height=npH+'px';
 
-  const vpW=appW-ROLL_W;
+  const vpW=viewport.clientWidth;
   const vpH=caH-2*RULER_H;
   viewport.style.height=vpH+'px';
 
-  // Base scale: fit paper width with some padding
+  // Base scale: fit paper width in viewport with some padding
   baseScale=Math.min((vpW-20)/CANVAS_W,1);
   if(viewScale<baseScale*0.5)viewScale=baseScale;
   if(viewScale===1||viewScale<baseScale)viewScale=baseScale;
@@ -483,12 +562,13 @@ background:#222;border-radius:1px;transform:translate(-50%,-50%)}
 justify-content:center;padding:4px 2px;flex-shrink:0;border-top:3px solid #3d8c85}
 .keyboard{display:flex;flex-direction:column;gap:2px;align-items:center;width:100%;max-width:700px}
 .kb-row{display:flex;gap:2px;justify-content:center;width:100%}
-.key{height:36px;min-width:0;border-radius:50%;background:#f5f0e8;
+.key{height:36px;min-width:0;border-radius:50% 50% 50% 50% / 55% 55% 45% 45%;background:#f5f0e8;
 border:2px solid #999;display:flex;flex-direction:column;align-items:center;
 justify-content:center;cursor:pointer;font-size:12px;
-font-family:'Courier New',monospace;font-weight:bold;color:#222;
+font-family:'Courier Prime','Courier New',monospace;font-weight:bold;color:#222;
 box-shadow:1px 1px 2px rgba(0,0,0,0.3);transition:background .05s,transform .05s;
-flex:1 1 0;-webkit-tap-highlight-color:transparent;overflow:hidden}
+flex:1 1 0;aspect-ratio:1;max-width:36px;
+-webkit-tap-highlight-color:transparent;overflow:hidden}
 .key .ku{font-size:8px;color:#555;line-height:1}
 .key .kl{font-size:13px;line-height:1}
 .key.pressed,.key:active{background:#333;color:#fff;transform:translateY(1px);box-shadow:none}
@@ -501,15 +581,15 @@ flex:1 1 0;-webkit-tap-highlight-color:transparent;overflow:hidden}
 /* Make keyboard bigger on small screens */
 @media(max-width:600px){
   .keyboard{max-width:100%}
-  .key{height:32px;font-size:11px}
-  .key .ku{font-size:7px}.key .kl{font-size:12px}
+  .key{height:30px;font-size:11px;max-width:30px}
+  .key .ku{font-size:7px}.key .kl{font-size:11px}
   .sk{font-size:8px}
   .kb-row{gap:1px}
   #keyboard-area{padding:3px 1px}
 }
 @media(max-width:400px){
-  .key{height:28px;font-size:10px}
-  .key .ku{font-size:6px}.key .kl{font-size:10px}
+  .key{height:26px;font-size:9px;max-width:26px}
+  .key .ku{font-size:5px}.key .kl{font-size:9px}
   .sk{font-size:7px}
 }
 </style>
