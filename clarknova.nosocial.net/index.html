@@ -109,34 +109,29 @@ function playBell(){
   g.gain.setValueAtTime(0.3,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.6);
   osc.connect(g);g.connect(ac.destination);osc.start(t);osc.stop(t+0.6);}catch(e){}
 }
-// CR: трещётка - деревяшка по стиральной доске, ускоряющееся трещание + удар
+// CR: быстрые щелчки каретки + финальный клик
 function playCR(){
   try{const ac=getAC(),t=ac.currentTime,sr=ac.sampleRate;
-  const len=0.45;
+  const len=0.55;
   const buf=ac.createBuffer(1,Math.floor(sr*len),sr);const d=buf.getChannelData(0);
-  // Ребристая доска: равномерные щелчки с ускорением (как палочка по рёбрам)
-  // Каждый щелчок = короткий треск (белый шум 2-3ms)
-  const totalClicks=22;
+  const totalClicks=20;
   for(let c=0;c<totalClicks;c++){
-    // Квадратичное ускорение: щелчки всё ближе друг к другу
-    const clickPos=(c/totalClicks);
-    const clickTime=clickPos*clickPos*0.38;
+    const clickPos=c/totalClicks;
+    const clickTime=clickPos*clickPos*0.48;
     const clickSample=Math.floor(clickTime*sr);
-    // Каждый щелчок: 2ms треск + деревянный резонанс
-    const clickDur=Math.floor(sr*0.003);
-    const volume=0.25+c/totalClicks*0.2; // громче к концу
+    const clickDur=Math.floor(sr*0.002);
+    const vol=0.5+clickPos*0.3;
     for(let j=0;j<clickDur&&clickSample+j<d.length;j++){
-      const e=Math.exp(-j/(sr*0.0008));
-      // Деревянный щелчок: шум + высокая синусоида
-      d[clickSample+j]+=e*volume*((Math.random()*2-1)*0.7+Math.sin(j*2*Math.PI*2200/sr)*0.3);
+      const env=Math.exp(-j/(sr*0.0005));
+      d[clickSample+j]+=env*vol*Math.sin(j*2*Math.PI*3000/sr);
     }
   }
-  // Щелчок в конце - каретка встала в паз (короткий сухой клик)
-  const boomStart=Math.floor(sr*0.39);
-  const clickLen=Math.floor(sr*0.003);
-  for(let i=boomStart;i<boomStart+clickLen&&i<d.length;i++){
-    const bp=(i-boomStart)/clickLen;
-    d[i]+=0.5*Math.exp(-bp*3)*(Math.random()*2-1);
+  // Финальный клик — громче
+  const bs=Math.floor(sr*0.49);
+  const cl=Math.floor(sr*0.005);
+  for(let j=0;j<cl&&bs+j<d.length;j++){
+    const env=Math.exp(-j/(sr*0.001));
+    d[bs+j]+=env*0.7*Math.sin(j*2*Math.PI*2000/sr);
   }
   const src=ac.createBufferSource();src.buffer=buf;
   src.connect(ac.destination);src.start(t);}catch(e){}
@@ -558,26 +553,25 @@ function layout(){
   // Base scale: fit paper width in viewport
   baseScale=Math.min((vpW-20)/CANVAS_W,1);
   
-  // On small screens, default zoom so ~24 columns (col 8-42) fill the width
-  // This makes typed text readable. User can still zoom out to see full page.
+  // On small screens, zoom so ~40 columns (0-40) fill the width
+  // This keeps cursor visible and text readable
   const smallScreen=(vpW<800);
   if(smallScreen){
-    // Show about 24 columns worth = 24*31 = 744px of paper in vpW
-    const initialScale=Math.min((vpW-10)/(24*CELL_W),baseScale*3);
-    if(viewScale<=baseScale)viewScale=initialScale;
+    // Show about 40 columns worth = 40*31 = 1240px of paper fitting in vpW
+    const initialScale=(vpW-10)/(40*CELL_W);
+    if(viewScale<=baseScale||viewScale===1)viewScale=initialScale;
   } else {
     if(viewScale<baseScale*0.5)viewScale=baseScale;
     if(viewScale===1||viewScale<baseScale)viewScale=baseScale;
   }
 
-  // Position paper: center on initial cursor area
+  // Position paper: on small screens center cursor, on large center paper
   const pw=CANVAS_W*viewScale;
   if(smallScreen){
-    // Center on cursor column area (col 8-42 roughly)
-    const cursorScreenX=(INITIAL_COL-1)*CELL_W*viewScale;
-    viewX=Math.round(vpW/2-cursorScreenX-CELL_W*viewScale*6);
+    // Position so left margin (col 1) is near left edge, cursor visible
+    viewX=Math.round(10);
     const cursorScreenY=(GRID_TOP+(INITIAL_ROW-1)*CELL_H)*viewScale;
-    viewY=Math.round(vpH2*0.15-cursorScreenY);
+    viewY=Math.round(20-cursorScreenY+vpH2*0.1);
   } else {
     viewX=Math.round((vpW-pw)/2);
     viewY=10;
