@@ -3,77 +3,63 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0">
-<title>Clark Nova — Royal Quiet De Luxe Typewriter</title>
+<title>Clark Nova Typewriter</title>
 <style>
-* { margin: 0; padding: 0; box-sizing: border-box; }
-html, body {
-  width: 100%; height: 100%; overflow: hidden;
-  background: #1a1a1a; font-family: monospace;
-  touch-action: none; user-select: none; -webkit-user-select: none;
-}
-#app {
-  width: 100%; height: 100%; display: flex; flex-direction: column;
-}
-#canvas-area {
-  flex: 1; overflow: hidden; display: flex; flex-direction: column;
-  align-items: center; background: #2a2a2a; position: relative;
-}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;overflow:hidden;background:#1a1a1a;
+font-family:monospace;touch-action:none;user-select:none;-webkit-user-select:none}
+#app{width:100%;height:100%;display:flex;flex-direction:column}
+#canvas-area{flex:1;overflow:hidden;display:flex;flex-direction:column;
+align-items:stretch;background:#2a2a2a;position:relative}
 </style>
 </head>
 <body>
 <div id="app">
-  <div id="canvas-area"></div>
-  <div id="nameplate"><span>Clark Nova</span></div>
-  <div id="keyboard-area"></div>
+<div id="canvas-area"></div>
+<div id="nameplate"><span class="np-screw left"></span><span class="np-text">Clark Nova</span><span class="np-screw right"></span></div>
+<div id="keyboard-area"></div>
 </div>
 <script>
-(function() {
+(function(){
 'use strict';
-
-// === CONSTANTS ===
-const CELL_W = 31;
-const CELL_H = 44;
-const COLS = 80;
-const ROWS = 79;
-const CANVAS_W = 2480;
-const CANVAS_H = 3508;
-const LEFT_MARGIN = 10;
-const RIGHT_MARGIN = 70;
-const HARD_RIGHT = 80;
-const BELL_COL = 63;
-const RULER_H = 24;
-const PAPER_PAD = 30; // gray padding above/below paper
+// === GRID CALCULATION ===
+// Page: 2480x3508. Columns: 80. CELL_W = 2480/80 = 31px.
+// Line height H=44, top/bottom margin M=16, lines L=79
+// Check: 16 + 44*79 + 16 = 16+3476+16 = 3508 ✓
+const CELL_W=31, CELL_H=44, COLS=80, ROWS=79;
+const CANVAS_W=2480, CANVAS_H=3508;
+const MARGIN_TOP=16, MARGIN_BOTTOM=16;
+const LEFT_MARGIN=10, RIGHT_MARGIN=70, HARD_RIGHT=80, BELL_COL=63;
+const RULER_H=28, PAPER_PAD=40;
 
 // === STATE ===
-let cursorCol = LEFT_MARGIN;
-let cursorRow = 1;
-let shiftLocked = false;
-let shiftHeld = false;
-let marginReleased = false;
-let audioCtx = null;
+let cursorCol=LEFT_MARGIN, cursorRow=1;
+let shiftLocked=false, shiftHeld=false, marginReleased=false;
+let audioCtx=null;
 
-// === DOM SETUP ===
-const canvasArea = document.getElementById('canvas-area');
-
-// Build structure: ruler-top, viewport(paper+cursor), ruler-bottom
-const rulerTopCanvas = document.createElement('canvas');
-const rulerBottomCanvas = document.createElement('canvas');
-const viewport = document.createElement('div');
-viewport.id = 'paper-viewport';
-const paperWrap = document.createElement('div');
-paperWrap.id = 'paper-wrap';
-const topPad = document.createElement('div');
-topPad.className = 'paper-pad';
-const bottomPad = document.createElement('div');
-bottomPad.className = 'paper-pad';
-const paperContainer = document.createElement('div');
-paperContainer.id = 'paper-container';
-const canvas = document.createElement('canvas');
-canvas.id = 'typing-canvas';
-canvas.width = CANVAS_W;
-canvas.height = CANVAS_H;
-const cursorEl = document.createElement('div');
-cursorEl.id = 'cursor';
+// === DOM ===
+const canvasArea=document.getElementById('canvas-area');
+const rulerTopCanvas=document.createElement('canvas');
+const rulerBottomCanvas=document.createElement('canvas');
+const viewport=document.createElement('div');
+viewport.id='paper-viewport';
+const paperWrap=document.createElement('div');
+paperWrap.id='paper-wrap';
+const topPad=document.createElement('div');
+topPad.className='paper-pad';
+const bottomPad=document.createElement('div');
+bottomPad.className='paper-pad';
+const paperContainer=document.createElement('div');
+paperContainer.id='paper-container';
+const canvas=document.createElement('canvas');
+canvas.id='typing-canvas';
+canvas.width=CANVAS_W; canvas.height=CANVAS_H;
+const cursorEl=document.createElement('div');
+cursorEl.id='cursor';
+// Paper roll buttons (left side)
+const rollBtns=document.createElement('div');
+rollBtns.id='roll-buttons';
+rollBtns.innerHTML='<button id="roll-up">&#9650;</button><button id="roll-down">&#9660;</button>';
 
 paperContainer.appendChild(canvas);
 paperContainer.appendChild(cursorEl);
@@ -82,581 +68,494 @@ paperWrap.appendChild(paperContainer);
 paperWrap.appendChild(bottomPad);
 viewport.appendChild(paperWrap);
 canvasArea.appendChild(rulerTopCanvas);
-canvasArea.appendChild(viewport);
+const vpRow=document.createElement('div');
+vpRow.id='vp-row';
+vpRow.appendChild(rollBtns);
+vpRow.appendChild(viewport);
+canvasArea.appendChild(vpRow);
 canvasArea.appendChild(rulerBottomCanvas);
-
-const ctx = canvas.getContext('2d');
-// === CANVAS INIT (white background + watermarks) ===
-function initCanvas() {
-  // White background
-  ctx.fillStyle = '#ffffff';
-  ctx.fillRect(0, 0, CANVAS_W, CANVAS_H);
+const ctx=canvas.getContext('2d');
+// === CANVAS INIT ===
+function initCanvas(){
+  ctx.fillStyle='#ffffff';
+  ctx.fillRect(0,0,CANVAS_W,CANVAS_H);
   // Steganographic watermarks in 4 A6 quadrant centers
-  // A6 = half A5 = quarter A4, so quadrants are 1240x1754 each
-  // Centers at (620,877), (1860,877), (620,2631), (1860,2631)
-  const watermarkPositions = [
-    [620, 877], [1860, 877], [620, 2631], [1860, 2631]
-  ];
-  ctx.font = 'bold 48px "Courier New", Courier, monospace';
-  ctx.fillStyle = 'rgba(254,254,254,1)'; // nearly white, invisible to eye
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  watermarkPositions.forEach(([x, y]) => {
-    ctx.fillText('Clark Nova', x, y);
-  });
-  ctx.textAlign = 'start';
-  ctx.textBaseline = 'top';
+  const wm=[[620,877],[1860,877],[620,2631],[1860,2631]];
+  ctx.font='bold 48px "Courier New",Courier,monospace';
+  ctx.fillStyle='rgba(254,254,254,1)';
+  ctx.textAlign='center'; ctx.textBaseline='middle';
+  wm.forEach(([x,y])=>ctx.fillText('Clark Nova',x,y));
+  ctx.textAlign='start'; ctx.textBaseline='alphabetic';
 }
 initCanvas();
 
 // === AUDIO ===
-function getAudioCtx() {
-  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-  return audioCtx;
+function getAC(){if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();return audioCtx;}
+function playKeystroke(){
+  try{
+    const ac=getAC(), t=ac.currentTime;
+    // Mechanical typewriter hammer: sharp attack, metallic resonance
+    const osc1=ac.createOscillator(), g1=ac.createGain();
+    osc1.type='sawtooth';
+    osc1.frequency.setValueAtTime(3000,t);
+    osc1.frequency.exponentialRampToValueAtTime(200,t+0.015);
+    g1.gain.setValueAtTime(0.4,t);
+    g1.gain.exponentialRampToValueAtTime(0.001,t+0.04);
+    osc1.connect(g1); g1.connect(ac.destination);
+    osc1.start(t); osc1.stop(t+0.04);
+    // Metal clack component
+    const osc2=ac.createOscillator(), g2=ac.createGain();
+    osc2.type='square';
+    osc2.frequency.setValueAtTime(4500,t);
+    osc2.frequency.exponentialRampToValueAtTime(800,t+0.008);
+    g2.gain.setValueAtTime(0.15,t);
+    g2.gain.exponentialRampToValueAtTime(0.001,t+0.025);
+    osc2.connect(g2); g2.connect(ac.destination);
+    osc2.start(t); osc2.stop(t+0.025);
+  }catch(e){}
 }
-function playKeystroke() {
-  try {
-    const ac = getAudioCtx();
-    const osc = ac.createOscillator();
-    const gain = ac.createGain();
-    osc.type = 'square';
-    osc.frequency.setValueAtTime(800 + Math.random() * 400, ac.currentTime);
-    osc.frequency.exponentialRampToValueAtTime(100, ac.currentTime + 0.03);
-    gain.gain.setValueAtTime(0.3, ac.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 0.05);
-    osc.connect(gain); gain.connect(ac.destination);
-    osc.start(ac.currentTime); osc.stop(ac.currentTime + 0.05);
-  } catch(e) {}
+function playBell(){
+  try{
+    const ac=getAC(),t=ac.currentTime;
+    const osc=ac.createOscillator(),g=ac.createGain();
+    osc.type='sine'; osc.frequency.setValueAtTime(2400,t);
+    g.gain.setValueAtTime(0.35,t);
+    g.gain.exponentialRampToValueAtTime(0.001,t+0.6);
+    osc.connect(g); g.connect(ac.destination);
+    osc.start(t); osc.stop(t+0.6);
+  }catch(e){}
 }
-function playBell() {
-  try {
-    const ac = getAudioCtx();
-    const osc = ac.createOscillator();
-    const gain = ac.createGain();
-    osc.type = 'sine';
-    osc.frequency.setValueAtTime(2000, ac.currentTime);
-    gain.gain.setValueAtTime(0.4, ac.currentTime);
-    gain.gain.exponentialRampToValueAtTime(0.001, ac.currentTime + 0.5);
-    osc.connect(gain); gain.connect(ac.destination);
-    osc.start(ac.currentTime); osc.stop(ac.currentTime + 0.5);
-  } catch(e) {}
+function playCarriageReturn(){
+  try{
+    const ac=getAC(),t=ac.currentTime;
+    // Sliding mechanical sound
+    const osc=ac.createOscillator(),g=ac.createGain();
+    osc.type='sawtooth';
+    osc.frequency.setValueAtTime(150,t);
+    osc.frequency.linearRampToValueAtTime(400,t+0.15);
+    osc.frequency.linearRampToValueAtTime(100,t+0.2);
+    g.gain.setValueAtTime(0.2,t);
+    g.gain.linearRampToValueAtTime(0.25,t+0.1);
+    g.gain.exponentialRampToValueAtTime(0.001,t+0.25);
+    osc.connect(g); g.connect(ac.destination);
+    osc.start(t); osc.stop(t+0.25);
+    // Ding at end
+    const o2=ac.createOscillator(),g2=ac.createGain();
+    o2.type='sine'; o2.frequency.setValueAtTime(1200,t+0.2);
+    g2.gain.setValueAtTime(0,t); g2.gain.setValueAtTime(0.1,t+0.2);
+    g2.gain.exponentialRampToValueAtTime(0.001,t+0.35);
+    o2.connect(g2); g2.connect(ac.destination);
+    o2.start(t+0.2); o2.stop(t+0.35);
+  }catch(e){}
 }
-// === CHARACTER MAP (Royal Quiet De Luxe) ===
-const keyRows = [
-  [{lower:'1',upper:'!',code:'Digit1'},{lower:'2',upper:'"',code:'Digit2'},
-   {lower:'3',upper:'#',code:'Digit3'},{lower:'4',upper:'$',code:'Digit4'},
-   {lower:'5',upper:'%',code:'Digit5'},{lower:'6',upper:'_',code:'Digit6'},
-   {lower:'7',upper:'&',code:'Digit7'},{lower:'8',upper:"'",code:'Digit8'},
-   {lower:'9',upper:'(',code:'Digit9'},{lower:'0',upper:')',code:'Digit0'},
-   {lower:'-',upper:'*',code:'Minus'},{lower:'=',upper:'+',code:'Equal'}],
-  [{lower:'q',upper:'Q',code:'KeyQ'},{lower:'w',upper:'W',code:'KeyW'},
-   {lower:'e',upper:'E',code:'KeyE'},{lower:'r',upper:'R',code:'KeyR'},
-   {lower:'t',upper:'T',code:'KeyT'},{lower:'y',upper:'Y',code:'KeyY'},
-   {lower:'u',upper:'U',code:'KeyU'},{lower:'i',upper:'I',code:'KeyI'},
-   {lower:'o',upper:'O',code:'KeyO'},{lower:'p',upper:'P',code:'KeyP'},
-   {lower:'\u00BD',upper:'\u00BC',code:'BracketLeft'}],
-  [{lower:'a',upper:'A',code:'KeyA'},{lower:'s',upper:'S',code:'KeyS'},
-   {lower:'d',upper:'D',code:'KeyD'},{lower:'f',upper:'F',code:'KeyF'},
-   {lower:'g',upper:'G',code:'KeyG'},{lower:'h',upper:'H',code:'KeyH'},
-   {lower:'j',upper:'J',code:'KeyJ'},{lower:'k',upper:'K',code:'KeyK'},
-   {lower:'l',upper:'L',code:'KeyL'},{lower:';',upper:':',code:'Semicolon'},
-   {lower:'\u00A2',upper:'@',code:'Quote'}],
-  [{lower:'z',upper:'Z',code:'KeyZ'},{lower:'x',upper:'X',code:'KeyX'},
-   {lower:'c',upper:'C',code:'KeyC'},{lower:'v',upper:'V',code:'KeyV'},
-   {lower:'b',upper:'B',code:'KeyB'},{lower:'n',upper:'N',code:'KeyN'},
-   {lower:'m',upper:'M',code:'KeyM'},{lower:',',upper:',',code:'Comma'},
-   {lower:'.',upper:'.',code:'Period'},{lower:'/',upper:'?',code:'Slash'}]
+// === CHARACTER MAP ===
+const keyRows=[
+  [{l:'1',u:'!',c:'Digit1'},{l:'2',u:'"',c:'Digit2'},{l:'3',u:'#',c:'Digit3'},
+   {l:'4',u:'$',c:'Digit4'},{l:'5',u:'%',c:'Digit5'},{l:'6',u:'_',c:'Digit6'},
+   {l:'7',u:'&',c:'Digit7'},{l:'8',u:"'",c:'Digit8'},{l:'9',u:'(',c:'Digit9'},
+   {l:'0',u:')',c:'Digit0'},{l:'-',u:'*',c:'Minus'},{l:'=',u:'+',c:'Equal'}],
+  [{l:'q',u:'Q',c:'KeyQ'},{l:'w',u:'W',c:'KeyW'},{l:'e',u:'E',c:'KeyE'},
+   {l:'r',u:'R',c:'KeyR'},{l:'t',u:'T',c:'KeyT'},{l:'y',u:'Y',c:'KeyY'},
+   {l:'u',u:'U',c:'KeyU'},{l:'i',u:'I',c:'KeyI'},{l:'o',u:'O',c:'KeyO'},
+   {l:'p',u:'P',c:'KeyP'},{l:'\u00BD',u:'\u00BC',c:'BracketLeft'}],
+  [{l:'a',u:'A',c:'KeyA'},{l:'s',u:'S',c:'KeyS'},{l:'d',u:'D',c:'KeyD'},
+   {l:'f',u:'F',c:'KeyF'},{l:'g',u:'G',c:'KeyG'},{l:'h',u:'H',c:'KeyH'},
+   {l:'j',u:'J',c:'KeyJ'},{l:'k',u:'K',c:'KeyK'},{l:'l',u:'L',c:'KeyL'},
+   {l:';',u:':',c:'Semicolon'},{l:'\u00A2',u:'@',c:'Quote'}],
+  [{l:'z',u:'Z',c:'KeyZ'},{l:'x',u:'X',c:'KeyX'},{l:'c',u:'C',c:'KeyC'},
+   {l:'v',u:'V',c:'KeyV'},{l:'b',u:'B',c:'KeyB'},{l:'n',u:'N',c:'KeyN'},
+   {l:'m',u:'M',c:'KeyM'},{l:',',u:',',c:'Comma'},{l:'.',u:'.',c:'Period'},
+   {l:'/',u:'?',c:'Slash'}]
 ];
-const codeToKey = {};
-keyRows.forEach(row => row.forEach(k => { codeToKey[k.code] = k; }));
+const codeToKey={};
+keyRows.forEach(r=>r.forEach(k=>{codeToKey[k.c]=k;}));
 
 // === CURSOR ===
-function updateCursor() {
-  cursorEl.style.left = ((cursorCol - 1) * CELL_W) + 'px';
-  cursorEl.style.top = ((cursorRow - 1) * CELL_H) + 'px';
-  if (cursorCol >= RIGHT_MARGIN && !marginReleased) {
-    cursorEl.classList.add('red');
-  } else if (cursorCol > HARD_RIGHT) {
-    cursorEl.classList.add('red');
-  } else {
-    cursorEl.classList.remove('red');
-  }
+function getCursorX(){return (cursorCol-1)*CELL_W;}
+function getCursorY(){return MARGIN_TOP+(cursorRow-1)*CELL_H;}
+function updateCursor(){
+  cursorEl.style.left=getCursorX()+'px';
+  cursorEl.style.top=getCursorY()+'px';
+  cursorEl.style.width=CELL_W+'px';
+  cursorEl.style.height=CELL_H+'px';
+  const atMarginStop=(cursorCol>=RIGHT_MARGIN&&!marginReleased);
+  const atHardStop=(cursorCol>=HARD_RIGHT&&marginReleased);
+  if(atMarginStop||atHardStop){cursorEl.classList.add('red');}
+  else{cursorEl.classList.remove('red');}
   updateMarRelVisual();
-  ensureCursorVisible();
 }
-function ensureCursorVisible() {
-  const vpH = viewport.clientHeight;
-  const scrollTop = viewport.scrollTop;
-  const cursorY = PAPER_PAD + (cursorRow - 1) * CELL_H;
-  const cursorBottom = cursorY + CELL_H;
-  if (cursorY < scrollTop) {
-    viewport.scrollTop = cursorY;
-  } else if (cursorBottom > scrollTop + vpH) {
-    viewport.scrollTop = cursorBottom - vpH;
+function ensureCursorVisibleOnCR(){
+  const scale=currentScale||1;
+  const cursorYInWrap=PAPER_PAD+(getCursorY())*scale;
+  const cursorBottomInWrap=cursorYInWrap+CELL_H*scale;
+  const vpH=viewport.clientHeight;
+  const st=viewport.scrollTop;
+  if(cursorBottomInWrap>st+vpH){
+    viewport.scrollTop=cursorBottomInWrap-vpH;
+  } else if(cursorYInWrap<st){
+    viewport.scrollTop=cursorYInWrap;
   }
 }
-
-function updateMarRelVisual() {
-  const el = keyElements['MarRel'];
-  if (!el) return;
-  // MAR REL highlights red when cursor is stuck at margin (not at hard right)
-  if (cursorCol >= RIGHT_MARGIN && !marginReleased && cursorCol < HARD_RIGHT) {
-    el.classList.add('mar-active');
-  } else {
-    el.classList.remove('mar-active');
-  }
+let currentScale=1;
+function updateMarRelVisual(){
+  const el=keyElements['MarRel'];
+  if(!el)return;
+  if(cursorCol>=RIGHT_MARGIN&&!marginReleased){el.classList.add('mar-active');}
+  else{el.classList.remove('mar-active');}
 }
-
-// === BELL LOGIC ===
-function checkBell(oldCol, newCol) {
-  // Bell dings when cursor crosses column 63
-  if (oldCol < BELL_COL && newCol >= BELL_COL) {
-    playBell();
-  }
+function checkBell(oldCol,newCol){
+  if(oldCol<BELL_COL&&newCol>=BELL_COL)playBell();
 }
 
 // === TYPING LOGIC ===
-function isShifted() { return shiftLocked || shiftHeld; }
-
-function canType() {
-  // At position 80, we CAN still print (in place, no advance)
-  if (cursorCol > HARD_RIGHT) return false;
-  if (cursorCol >= RIGHT_MARGIN && !marginReleased && cursorCol < HARD_RIGHT) return false;
+function isShifted(){return shiftLocked||shiftHeld;}
+function canType(){
+  if(cursorCol>HARD_RIGHT)return false;
+  if(cursorCol>=RIGHT_MARGIN&&!marginReleased)return false;
   return true;
 }
-
-function typeCharacter(ch) {
-  if (!canType()) return;
-  const x = (cursorCol - 1) * CELL_W;
-  const y = (cursorRow - 1) * CELL_H;
-  ctx.font = 'bold 32px "Courier New", Courier, monospace';
-  ctx.fillStyle = '#1a1a2e';
-  ctx.textBaseline = 'top';
-  ctx.fillText(ch, x + 2, y + 6);
+function typeCharacter(ch){
+  if(!canType())return;
+  const x=(cursorCol-1)*CELL_W;
+  const y=MARGIN_TOP+(cursorRow-1)*CELL_H;
+  // Render character - tighter, more typewriter-like
+  ctx.font='26px "Courier New",Courier,monospace';
+  ctx.fillStyle='#0a0a1a';
+  ctx.textBaseline='top';
+  ctx.fillText(ch,x+4,y+10);
   playKeystroke();
-  // Position 80: print in place, cursor doesn't advance
-  if (cursorCol >= HARD_RIGHT) {
-    updateCursor();
-    return;
-  }
-  const oldCol = cursorCol;
+  if(cursorCol>=HARD_RIGHT){updateCursor();return;} // print in place at col 80
+  const oldCol=cursorCol;
   cursorCol++;
-  // Margin stop
-  if (cursorCol >= RIGHT_MARGIN && !marginReleased) {
-    cursorCol = RIGHT_MARGIN;
-  }
-  checkBell(oldCol, cursorCol);
+  if(cursorCol>=RIGHT_MARGIN&&!marginReleased){cursorCol=RIGHT_MARGIN;}
+  checkBell(oldCol,cursorCol);
   updateCursor();
 }
-function doSpace() {
-  if (!canType()) return;
+function doSpace(){
+  if(!canType())return;
   playKeystroke();
-  if (cursorCol >= HARD_RIGHT) {
-    // At position 80, space doesn't advance
-    updateCursor();
-    return;
-  }
-  const oldCol = cursorCol;
+  if(cursorCol>=HARD_RIGHT){updateCursor();return;}
+  const oldCol=cursorCol;
   cursorCol++;
-  if (cursorCol >= RIGHT_MARGIN && !marginReleased) {
-    cursorCol = RIGHT_MARGIN;
-  }
-  checkBell(oldCol, cursorCol);
+  if(cursorCol>=RIGHT_MARGIN&&!marginReleased){cursorCol=RIGHT_MARGIN;}
+  checkBell(oldCol,cursorCol);
   updateCursor();
 }
-
-function doTab() {
-  if (!canType()) return;
+function doTab(){
+  if(!canType())return;
   playKeystroke();
-  const oldCol = cursorCol;
-  // Jump to next position divisible by 5
-  let target = Math.ceil((cursorCol + 1) / 5) * 5;
-  if (target <= cursorCol) target = cursorCol + 5 - (cursorCol % 5);
-  if (target > HARD_RIGHT) target = HARD_RIGHT;
-  if (target >= RIGHT_MARGIN && !marginReleased) {
-    target = RIGHT_MARGIN;
-  }
-  cursorCol = target;
-  checkBell(oldCol, cursorCol);
+  const oldCol=cursorCol;
+  let target=Math.ceil((cursorCol+1)/5)*5;
+  if(target<=cursorCol)target+=5;
+  if(target>HARD_RIGHT)target=HARD_RIGHT;
+  if(target>=RIGHT_MARGIN&&!marginReleased)target=RIGHT_MARGIN;
+  cursorCol=target;
+  checkBell(oldCol,cursorCol);
   updateCursor();
 }
-
-function doBackspace() {
-  if (cursorCol > 1) {
-    cursorCol--;
-    updateCursor();
-  }
+function doBackspace(){
+  if(cursorCol>1){cursorCol--;updateCursor();}
 }
-
-function doCarriageReturn() {
-  if (cursorRow >= ROWS) return;
-  cursorRow++;
-  cursorCol = LEFT_MARGIN;
-  marginReleased = false;
+function doCarriageReturn(){
+  if(cursorRow>=ROWS)return;
+  cursorRow++;cursorCol=LEFT_MARGIN;marginReleased=false;
+  playCarriageReturn();
   updateCursor();
+  ensureCursorVisibleOnCR();
 }
-
-function doMarginRelease() {
-  // Only works when cursor is stuck at right margin
-  if (cursorCol >= RIGHT_MARGIN && !marginReleased && cursorCol < HARD_RIGHT) {
-    marginReleased = true;
-    // Move cursor one position past margin
-    const oldCol = cursorCol;
+function doMarginRelease(){
+  if(cursorCol>=RIGHT_MARGIN&&!marginReleased){
+    marginReleased=true;
+    const oldCol=cursorCol;
     cursorCol++;
-    if (cursorCol > HARD_RIGHT) cursorCol = HARD_RIGHT;
-    checkBell(oldCol, cursorCol);
+    if(cursorCol>HARD_RIGHT)cursorCol=HARD_RIGHT;
+    checkBell(oldCol,cursorCol);
     updateCursor();
   }
 }
-// === PHYSICAL KEYBOARD INPUT ===
-function handleKeyDown(e) {
-  if (e.repeat) return;
-  const code = e.code;
-  if (code === 'ShiftLeft' || code === 'ShiftRight') {
-    shiftHeld = true;
-    if (shiftLocked) { shiftLocked = false; updateShiftLockVisual(); }
-    highlightKey(code, true);
-    e.preventDefault(); return;
-  }
-  if (code === 'Enter') {
-    doCarriageReturn(); highlightKey('Enter', true);
-    e.preventDefault(); return;
-  }
-  if (code === 'Backspace') {
-    doBackspace(); highlightKey('Backspace', true);
-    e.preventDefault(); return;
-  }
-  if (code === 'Tab') {
-    doTab(); highlightKey('Tab', true);
-    e.preventDefault(); return;
-  }
-  if (code === 'Space') {
-    doSpace(); highlightKey('Space', true);
-    e.preventDefault(); return;
-  }
-  const keyDef = codeToKey[code];
-  if (keyDef) {
-    typeCharacter(isShifted() ? keyDef.upper : keyDef.lower);
-    highlightKey(code, true);
-    e.preventDefault();
-  }
+function doCursorUp(){
+  if(cursorRow>1){cursorRow--;updateCursor();ensureCursorVisibleOnCR();}
 }
-function handleKeyUp(e) {
-  const code = e.code;
-  if (code === 'ShiftLeft' || code === 'ShiftRight') {
-    shiftHeld = false; highlightKey(code, false); return;
-  }
-  highlightKey(code, false);
+function doCursorDown(){
+  if(cursorRow<ROWS){cursorRow++;updateCursor();ensureCursorVisibleOnCR();}
 }
-document.addEventListener('keydown', handleKeyDown);
-document.addEventListener('keyup', handleKeyUp);
+// === KEYBOARD INPUT ===
+function handleKeyDown(e){
+  if(e.repeat)return;
+  const code=e.code;
+  if(code==='ShiftLeft'||code==='ShiftRight'){
+    shiftHeld=true;
+    if(shiftLocked){shiftLocked=false;updateShiftLockVisual();}
+    highlightKey(code,true);e.preventDefault();return;
+  }
+  if(code==='Enter'){doCarriageReturn();highlightKey('Enter',true);e.preventDefault();return;}
+  if(code==='Backspace'){doBackspace();highlightKey('Backspace',true);e.preventDefault();return;}
+  if(code==='Tab'){doTab();highlightKey('Tab',true);e.preventDefault();return;}
+  if(code==='Space'){doSpace();highlightKey('Space',true);e.preventDefault();return;}
+  if(code==='ArrowUp'){doCursorUp();highlightKey('ArrowUp',true);e.preventDefault();return;}
+  if(code==='ArrowDown'){doCursorDown();highlightKey('ArrowDown',true);e.preventDefault();return;}
+  const kd=codeToKey[code];
+  if(kd){typeCharacter(isShifted()?kd.u:kd.l);highlightKey(code,true);e.preventDefault();}
+}
+function handleKeyUp(e){
+  const code=e.code;
+  if(code==='ShiftLeft'||code==='ShiftRight'){shiftHeld=false;highlightKey(code,false);return;}
+  highlightKey(code,false);
+}
+document.addEventListener('keydown',handleKeyDown);
+document.addEventListener('keyup',handleKeyUp);
+
 // === SCHEMATIC KEYBOARD ===
-const keyboardArea = document.getElementById('keyboard-area');
-const keyElements = {};
-
-function highlightKey(code, on) {
-  const el = keyElements[code];
-  if (el) { if (on) el.classList.add('pressed'); else el.classList.remove('pressed'); }
+const keyboardArea=document.getElementById('keyboard-area');
+const keyElements={};
+function highlightKey(code,on){
+  const el=keyElements[code];
+  if(el){if(on)el.classList.add('pressed');else el.classList.remove('pressed');}
 }
-function updateShiftLockVisual() {
-  const el = keyElements['ShiftLock'];
-  if (el) { if (shiftLocked) el.classList.add('locked'); else el.classList.remove('locked'); }
+function updateShiftLockVisual(){
+  const el=keyElements['ShiftLock'];
+  if(el){if(shiftLocked)el.classList.add('locked');else el.classList.remove('locked');}
 }
-
-function buildKeyboard() {
-  const kb = document.createElement('div');
-  kb.className = 'keyboard';
-  // Row 1: BACK SPACE + numbers + TAB
-  const row1 = document.createElement('div'); row1.className = 'kb-row';
-  row1.appendChild(makeSpecialKey('BACK\nSPACE','Backspace',1.5));
-  keyRows[0].forEach(k => row1.appendChild(makeCharKey(k)));
-  row1.appendChild(makeSpecialKey('TAB','Tab',1.5));
-  kb.appendChild(row1);
-  // Row 2
-  const row2 = document.createElement('div'); row2.className = 'kb-row';
-  keyRows[1].forEach(k => row2.appendChild(makeCharKey(k)));
-  kb.appendChild(row2);
-  // Row 3: SHIFT LOCK + letters + CR
-  const row3 = document.createElement('div'); row3.className = 'kb-row';
-  row3.appendChild(makeSpecialKey('SHIFT\nLOCK','ShiftLock',1.8));
-  keyRows[2].forEach(k => row3.appendChild(makeCharKey(k)));
-  row3.appendChild(makeSpecialKey('\u21B5','Enter',1.8));
-  kb.appendChild(row3);
-  // Row 4: SHIFT + letters + SHIFT + MAR REL
-  const row4 = document.createElement('div'); row4.className = 'kb-row';
-  row4.appendChild(makeSpecialKey('SHIFT','ShiftLeft',1.8));
-  keyRows[3].forEach(k => row4.appendChild(makeCharKey(k)));
-  row4.appendChild(makeSpecialKey('SHIFT','ShiftRight',1.8));
-  row4.appendChild(makeSpecialKey('MAR\nREL','MarRel',1.3));
-  kb.appendChild(row4);
-  // Row 5: Spacebar
-  const row5 = document.createElement('div'); row5.className = 'kb-row';
-  row5.appendChild(makeSpecialKey('','Space',10));
-  kb.appendChild(row5);
-
-  keyboardArea.innerHTML = '';
+function buildKeyboard(){
+  const kb=document.createElement('div');kb.className='keyboard';
+  const r1=mkRow();
+  r1.appendChild(mkSp('BACK\nSPACE','Backspace',1.5));
+  keyRows[0].forEach(k=>r1.appendChild(mkCh(k)));
+  r1.appendChild(mkSp('TAB','Tab',1.5));
+  kb.appendChild(r1);
+  const r2=mkRow();
+  keyRows[1].forEach(k=>r2.appendChild(mkCh(k)));
+  kb.appendChild(r2);
+  const r3=mkRow();
+  r3.appendChild(mkSp('SHIFT\nLOCK','ShiftLock',1.7));
+  keyRows[2].forEach(k=>r3.appendChild(mkCh(k)));
+  r3.appendChild(mkSp('\u21B5','Enter',1.7));
+  kb.appendChild(r3);
+  const r4=mkRow();
+  r4.appendChild(mkSp('SHIFT','ShiftLeft',1.7));
+  keyRows[3].forEach(k=>r4.appendChild(mkCh(k)));
+  r4.appendChild(mkSp('SHIFT','ShiftRight',1.7));
+  r4.appendChild(mkSp('MAR\nREL','MarRel',1.2));
+  kb.appendChild(r4);
+  const r5=mkRow();
+  r5.appendChild(mkSp('','Space',9));
+  kb.appendChild(r5);
+  keyboardArea.innerHTML='';
   keyboardArea.appendChild(kb);
 }
-function makeCharKey(keyDef) {
-  const el = document.createElement('div');
-  el.className = 'key char-key';
-  el.innerHTML = '<span class="upper">'+escH(keyDef.upper)+'</span><span class="lower">'+escH(keyDef.lower)+'</span>';
-  el.dataset.code = keyDef.code;
-  keyElements[keyDef.code] = el;
-  el.addEventListener('mousedown', (e) => {
-    e.preventDefault(); el.classList.add('pressed');
-    typeCharacter(isShifted() ? keyDef.upper : keyDef.lower);
-  });
-  el.addEventListener('mouseup', () => el.classList.remove('pressed'));
-  el.addEventListener('mouseleave', () => el.classList.remove('pressed'));
-  el.addEventListener('touchstart', (e) => {
-    e.preventDefault(); el.classList.add('pressed');
-    typeCharacter(isShifted() ? keyDef.upper : keyDef.lower);
-  });
-  el.addEventListener('touchend', (e) => { e.preventDefault(); el.classList.remove('pressed'); });
-  el.addEventListener('touchcancel', () => el.classList.remove('pressed'));
+function mkRow(){const d=document.createElement('div');d.className='kb-row';return d;}
+function mkCh(kd){
+  const el=document.createElement('div');el.className='key char-key';
+  el.innerHTML='<span class="ku">'+esc(kd.u)+'</span><span class="kl">'+esc(kd.l)+'</span>';
+  el.dataset.code=kd.c; keyElements[kd.c]=el;
+  el.addEventListener('mousedown',e=>{e.preventDefault();el.classList.add('pressed');typeCharacter(isShifted()?kd.u:kd.l);});
+  el.addEventListener('mouseup',()=>el.classList.remove('pressed'));
+  el.addEventListener('mouseleave',()=>el.classList.remove('pressed'));
+  el.addEventListener('touchstart',e=>{e.preventDefault();el.classList.add('pressed');typeCharacter(isShifted()?kd.u:kd.l);});
+  el.addEventListener('touchend',e=>{e.preventDefault();el.classList.remove('pressed');});
+  el.addEventListener('touchcancel',()=>el.classList.remove('pressed'));
   return el;
 }
-
-function makeSpecialKey(label, code, wMul) {
-  const el = document.createElement('div');
-  el.className = 'key special-key';
-  el.style.flex = '0 0 '+(wMul*3)+'em';
-  el.innerHTML = '<span class="label">'+label.replace('\n','<br>')+'</span>';
-  el.dataset.code = code;
-  keyElements[code] = el;
-  function onPress(e) {
-    e.preventDefault(); el.classList.add('pressed');
-    if (code==='Backspace') doBackspace();
-    else if (code==='Enter') doCarriageReturn();
-    else if (code==='Space') doSpace();
-    else if (code==='Tab') doTab();
-    else if (code==='MarRel') doMarginRelease();
-    else if (code==='ShiftLock') { shiftLocked=!shiftLocked; updateShiftLockVisual(); }
-    else if (code==='ShiftLeft'||code==='ShiftRight') {
-      shiftHeld=true;
-      if(shiftLocked){shiftLocked=false;updateShiftLockVisual();}
-    }
+function mkSp(label,code,wM){
+  const el=document.createElement('div');el.className='key special-key';
+  el.style.flex='0 0 '+(wM*2.8)+'em';
+  el.innerHTML='<span class="label">'+label.replace('\n','<br>')+'</span>';
+  el.dataset.code=code; keyElements[code]=el;
+  function pr(e){e.preventDefault();el.classList.add('pressed');
+    if(code==='Backspace')doBackspace();
+    else if(code==='Enter')doCarriageReturn();
+    else if(code==='Space')doSpace();
+    else if(code==='Tab')doTab();
+    else if(code==='MarRel')doMarginRelease();
+    else if(code==='ShiftLock'){shiftLocked=!shiftLocked;updateShiftLockVisual();}
+    else if(code==='ShiftLeft'||code==='ShiftRight'){shiftHeld=true;if(shiftLocked){shiftLocked=false;updateShiftLockVisual();}}
   }
-  function onRelease(e) {
-    if(e)e.preventDefault(); el.classList.remove('pressed');
-    if(code==='ShiftLeft'||code==='ShiftRight') shiftHeld=false;
+  function rl(e){if(e)e.preventDefault();el.classList.remove('pressed');
+    if(code==='ShiftLeft'||code==='ShiftRight')shiftHeld=false;
   }
-  el.addEventListener('mousedown', onPress);
-  el.addEventListener('mouseup', onRelease);
-  el.addEventListener('mouseleave', onRelease);
-  el.addEventListener('touchstart', onPress);
-  el.addEventListener('touchend', onRelease);
-  el.addEventListener('touchcancel', onRelease);
+  el.addEventListener('mousedown',pr);el.addEventListener('mouseup',rl);el.addEventListener('mouseleave',rl);
+  el.addEventListener('touchstart',pr);el.addEventListener('touchend',rl);el.addEventListener('touchcancel',rl);
   return el;
 }
+function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
-function escH(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
-// === RULER RENDERING (pixel-perfect canvas) ===
-function drawRuler(rulerCanvas) {
-  // Ruler is exactly CANVAS_W + 6*CELL_W wide (3 extra each side)
-  const totalW = CANVAS_W + 6 * CELL_W; // 2480 + 186 = 2666
-  rulerCanvas.width = totalW;
-  rulerCanvas.height = RULER_H;
-  rulerCanvas.style.width = totalW + 'px';
-  rulerCanvas.style.height = RULER_H + 'px';
-  const rc = rulerCanvas.getContext('2d');
-  rc.fillStyle = '#111';
-  rc.fillRect(0, 0, totalW, RULER_H);
-  // Draw marks for positions -3 to 82 (total 86 positions)
-  for (let i = -3; i < 83; i++) {
-    const x = (i + 3) * CELL_W; // pixel x for left edge of this position
-    const cx = x + CELL_W / 2; // center
-    const posInGroup = ((i % 10) + 10) % 10;
-    const isMargin = (i === 10 || i === 70);
-    const isOutside = (i < 0 || i >= 80);
-    // Draw notch
-    let notchH = 4; // small tick
-    if (posInGroup === 0) notchH = 10; // major tick at 0,10,20...
-    else if (posInGroup === 5) notchH = 7; // medium tick at 5,15,25...
-    const color = isMargin ? '#f44' : (isOutside ? '#555' : '#aaa');
-    rc.fillStyle = color;
-    rc.fillRect(cx - 0.5, RULER_H - notchH, 1, notchH);
-    // Draw digit labels at multiples of 10
-    if (posInGroup === 0 && i >= 0 && i <= 80) {
-      rc.fillStyle = isMargin ? '#f44' : '#ccc';
-      rc.font = 'bold 9px monospace';
-      rc.textAlign = 'center';
-      rc.textBaseline = 'top';
-      rc.fillText((i / 10).toString(), cx, 1);
+// Roll buttons
+document.getElementById('roll-up').addEventListener('mousedown',e=>{e.preventDefault();doCursorUp();});
+document.getElementById('roll-up').addEventListener('touchstart',e=>{e.preventDefault();doCursorUp();});
+document.getElementById('roll-down').addEventListener('mousedown',e=>{e.preventDefault();doCursorDown();});
+document.getElementById('roll-down').addEventListener('touchstart',e=>{e.preventDefault();doCursorDown();});
+// Map ArrowUp/Down to keyElements for highlight
+keyElements['ArrowUp']=document.getElementById('roll-up');
+keyElements['ArrowDown']=document.getElementById('roll-down');
+// === RULER (pixel-perfect canvas, aligned to paper) ===
+function drawRuler(rc_canvas){
+  // Ruler spans exactly the paper width: 80 cells = 2480px
+  // Plus 3 extra cells each side = 6*31 = 186px extra
+  const totalW=CANVAS_W+6*CELL_W; // 2666px
+  rc_canvas.width=totalW;
+  rc_canvas.height=RULER_H;
+  const rc=rc_canvas.getContext('2d');
+  rc.fillStyle='#111';
+  rc.fillRect(0,0,totalW,RULER_H);
+  // Position i: -3 to 82. Paper positions 0..79 map to paper columns 1..80
+  // Pixel offset for position i: (i+3)*CELL_W
+  for(let i=-3;i<83;i++){
+    const x=(i+3)*CELL_W;
+    const cx=x+Math.floor(CELL_W/2);
+    const grp=((i%10)+10)%10;
+    const isMarg=(i===10||i===70);
+    const isOut=(i<0||i>=80);
+    // Notch heights
+    let nh=5;
+    if(grp===0)nh=14;
+    else if(grp===5)nh=10;
+    const col=isMarg?'#f44':(isOut?'#444':'#999');
+    rc.fillStyle=col;
+    rc.fillRect(cx,RULER_H-nh,1,nh);
+    // Labels at multiples of 10 (printed as "X" where X=i/10)
+    // Format: at pos 0 -> "0", pos 10 -> "1" + notch + "0" etc.
+    // Actually print single digit of tens at the major tick
+    if(grp===0&&i>=0&&i<=80){
+      const digit=(i/10).toString();
+      rc.fillStyle=isMarg?'#f44':'#ccc';
+      rc.font='bold 10px sans-serif';
+      rc.textAlign='center';
+      rc.textBaseline='bottom';
+      rc.fillText(digit,cx,RULER_H-nh-1);
     }
   }
 }
 
-// === LAYOUT / SCALING ===
-function layout() {
-  const appW = window.innerWidth;
-  const appH = window.innerHeight;
-  // Keyboard takes ~33% of height
-  const kbH = Math.max(160, Math.floor(appH * 0.33));
-  const nameplateH = 28;
-  const canvasAreaH = appH - kbH - nameplateH;
-  canvasArea.style.height = canvasAreaH + 'px';
-  document.getElementById('keyboard-area').style.height = kbH + 'px';
-  document.getElementById('nameplate').style.height = nameplateH + 'px';
+// === LAYOUT ===
+function layout(){
+  const appW=window.innerWidth, appH=window.innerHeight;
+  const kbH=Math.max(150,Math.floor(appH*0.32));
+  const npH=36;
+  const canvasH=appH-kbH-npH;
+  canvasArea.style.height=canvasH+'px';
+  document.getElementById('keyboard-area').style.height=kbH+'px';
+  document.getElementById('nameplate').style.height=npH+'px';
 
-  // Scale paper to fit width with some margin
-  const availW = appW - 40; // 20px gray margin each side
-  const scale = Math.min(availW / CANVAS_W, 1);
-  const scaledPaperW = CANVAS_W * scale;
-  const scaledPaperH = CANVAS_H * scale;
-  const rulerW = (CANVAS_W + 6 * CELL_W) * scale;
+  // Scale: fit paper width in available space
+  const availW=appW-60; // gray margins
+  const scale=Math.min(availW/CANVAS_W,1);
+  currentScale=scale;
+  const spW=CANVAS_W*scale;
+  const spH=CANVAS_H*scale;
 
-  // Paper container sizing
-  paperContainer.style.width = CANVAS_W + 'px';
-  paperContainer.style.height = CANVAS_H + 'px';
-  paperContainer.style.transform = 'scale(' + scale + ')';
-  paperContainer.style.transformOrigin = 'top left';
+  paperContainer.style.width=CANVAS_W+'px';
+  paperContainer.style.height=CANVAS_H+'px';
+  paperContainer.style.transform='scale('+scale+')';
+  paperContainer.style.transformOrigin='top left';
 
-  // Paper wrap (includes padding)
-  paperWrap.style.width = scaledPaperW + 'px';
-  paperWrap.style.height = (scaledPaperH + 2 * PAPER_PAD) + 'px';
-  topPad.style.height = PAPER_PAD + 'px';
-  bottomPad.style.height = PAPER_PAD + 'px';
-  // Viewport takes remaining vertical space (minus rulers)
-  const vpH = canvasAreaH - 2 * RULER_H;
-  viewport.style.height = vpH + 'px';
-  viewport.style.width = appW + 'px';
+  paperWrap.style.width=spW+'px';
+  paperWrap.style.height=(spH+2*PAPER_PAD)+'px';
+  topPad.style.height=PAPER_PAD+'px';
+  bottomPad.style.height=PAPER_PAD+'px';
 
-  // Rulers: draw at native size then scale
+  const vpH=canvasH-2*RULER_H;
+  viewport.style.height=vpH+'px';
+
+  // Rulers at native pixel size, scaled with CSS
   drawRuler(rulerTopCanvas);
   drawRuler(rulerBottomCanvas);
-  rulerTopCanvas.style.width = rulerW + 'px';
-  rulerTopCanvas.style.height = RULER_H + 'px';
-  rulerBottomCanvas.style.width = rulerW + 'px';
-  rulerBottomCanvas.style.height = RULER_H + 'px';
-  // Position rulers: center with paper, offset by 3 cells
-  const rulerLeft = (appW - scaledPaperW) / 2 - 3 * CELL_W * scale;
-  rulerTopCanvas.style.marginLeft = Math.max(0, rulerLeft) + 'px';
-  rulerBottomCanvas.style.marginLeft = Math.max(0, rulerLeft) + 'px';
+  const rulerTotalW=CANVAS_W+6*CELL_W;
+  const scaledRulerW=rulerTotalW*scale;
+  rulerTopCanvas.style.width=scaledRulerW+'px';
+  rulerTopCanvas.style.height=RULER_H+'px';
+  rulerBottomCanvas.style.width=scaledRulerW+'px';
+  rulerBottomCanvas.style.height=RULER_H+'px';
+  // Align rulers: position 0 of ruler = left edge of paper
+  // Ruler has 3 extra cells on left, so offset ruler left by 3*CELL_W*scale
+  const paperLeft=(appW-spW)/2;
+  const rulerLeft=paperLeft-3*CELL_W*scale;
+  rulerTopCanvas.style.marginLeft=Math.max(0,rulerLeft)+'px';
+  rulerBottomCanvas.style.marginLeft=Math.max(0,rulerLeft)+'px';
 
-  // Center paper in viewport with gray on sides
-  paperWrap.style.marginLeft = ((appW - scaledPaperW) / 2) + 'px';
-  paperWrap.style.marginRight = 'auto';
+  // Paper centering
+  paperWrap.style.marginLeft=paperLeft+'px';
 
-  // Keyboard width matches paper width
-  const kbEl = document.getElementById('keyboard-area');
-  const kbInner = kbEl.querySelector('.keyboard');
-  if (kbInner) {
-    kbInner.style.maxWidth = Math.min(scaledPaperW, appW - 20) + 'px';
-  }
+  // Keyboard width ~ paper width
+  const kbInner=keyboardArea.querySelector('.keyboard');
+  if(kbInner)kbInner.style.maxWidth=Math.min(spW+40,appW-10)+'px';
 }
-
-// === INITIALIZATION ===
-function init() {
+// === INIT ===
+function init(){
   buildKeyboard();
   layout();
   updateCursor();
-  window.addEventListener('resize', () => { layout(); updateCursor(); });
+  window.addEventListener('resize',()=>{layout();updateCursor();});
 }
 init();
 })();
 </script>
 <style>
-#canvas-area {
-  flex: 1; overflow: hidden; display: flex; flex-direction: column;
-  align-items: flex-start; background: #2a2a2a; position: relative;
-}
-#paper-viewport {
-  overflow-y: auto; overflow-x: hidden; position: relative;
-  scrollbar-width: thin; scrollbar-color: #555 #2a2a2a;
-}
-#paper-viewport::-webkit-scrollbar { width: 10px; }
-#paper-viewport::-webkit-scrollbar-track { background: #2a2a2a; }
-#paper-viewport::-webkit-scrollbar-thumb { background: #555; border-radius: 4px; }
-#paper-wrap {
-  position: relative;
-}
-.paper-pad {
-  background: #2a2a2a; width: 100%;
-}
-#paper-container {
-  position: relative; background: #fff;
-  box-shadow: 0 2px 20px rgba(0,0,0,0.5);
-}
-#typing-canvas { display: block; background: #fff; }
-#cursor {
-  position: absolute; width: 31px; height: 44px;
-  background: rgba(0,0,0,0.8); pointer-events: none;
-  animation: blink 1s step-end infinite;
-}
-@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
-#cursor.red { background: rgba(200,0,0,0.85); }
-canvas[id^="ruler"] {
-  display: block; flex-shrink: 0; image-rendering: pixelated;
-}
+#canvas-area{flex:1;overflow:hidden;display:flex;flex-direction:column;align-items:stretch;background:#2a2a2a}
+#vp-row{flex:1;display:flex;align-items:stretch;overflow:hidden}
+#paper-viewport{flex:1;overflow-y:auto;overflow-x:hidden;
+  scrollbar-width:thin;scrollbar-color:#555 #2a2a2a}
+#paper-viewport::-webkit-scrollbar{width:10px}
+#paper-viewport::-webkit-scrollbar-track{background:#2a2a2a}
+#paper-viewport::-webkit-scrollbar-thumb{background:#555;border-radius:4px}
+#paper-wrap{position:relative}
+.paper-pad{background:#2a2a2a;width:100%}
+#paper-container{position:relative;background:#fff;box-shadow:0 2px 20px rgba(0,0,0,0.5)}
+#typing-canvas{display:block;background:#fff}
+#cursor{position:absolute;background:rgba(0,0,0,0.75);pointer-events:none;animation:blink 1s step-end infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+#cursor.red{background:rgba(200,0,0,0.85)}
+canvas{display:block;flex-shrink:0;image-rendering:pixelated}
+/* Roll buttons */
+#roll-buttons{width:32px;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;gap:8px;background:#222;flex-shrink:0}
+#roll-buttons button{width:26px;height:26px;border:1px solid #555;background:#333;
+  color:#aaa;font-size:12px;cursor:pointer;border-radius:3px;display:flex;
+  align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent}
+#roll-buttons button:active,#roll-buttons button.pressed{background:#666;color:#fff}
 /* Nameplate */
-#nameplate {
-  background: #3d3d3d; display: flex; align-items: center;
-  justify-content: center; border-top: 1px solid #555;
-  border-bottom: 1px solid #222; flex-shrink: 0;
+#nameplate{background:#3d3d3d;display:flex;align-items:center;justify-content:center;
+  border-top:1px solid #555;border-bottom:1px solid #222;flex-shrink:0;
+  padding:6px 0;gap:12px}
+.np-text{font-family:'Georgia',serif;font-style:italic;font-size:14px;
+  color:#c0b090;letter-spacing:3px;text-shadow:1px 1px 2px rgba(0,0,0,0.5);
+  background:linear-gradient(to bottom,#4a4a4a,#2a2a2a);
+  padding:4px 24px;border-radius:12px;border:1px solid #555}
+.np-screw{display:inline-block;width:10px;height:10px;border-radius:50%;
+  background:radial-gradient(circle at 3px 3px,#999,#444);
+  border:1px solid #333;box-shadow:inset 0 1px 2px rgba(255,255,255,0.2)}
+.np-screw::after{content:'';display:block;width:6px;height:1px;
+  background:#222;margin:4px auto 0;border-radius:1px}
+/* Keyboard */
+#keyboard-area{background:#5ab4ac;display:flex;align-items:center;
+  justify-content:center;padding:6px;flex-shrink:0;border-top:3px solid #3d8c85}
+.keyboard{display:flex;flex-direction:column;gap:3px;align-items:center;width:100%}
+.kb-row{display:flex;gap:2px;justify-content:center;width:100%}
+.key{height:2.4em;min-width:2.4em;border-radius:50%;background:#f5f0e8;
+  border:2px solid #999;display:flex;flex-direction:column;align-items:center;
+  justify-content:center;cursor:pointer;font-size:10px;
+  font-family:'Courier New',monospace;font-weight:bold;color:#222;
+  box-shadow:1px 2px 3px rgba(0,0,0,0.3);transition:background .05s,transform .05s;
+  flex:0 0 2.4em;-webkit-tap-highlight-color:transparent}
+.key .ku{font-size:7px;color:#555;line-height:1}
+.key .kl{font-size:11px;line-height:1}
+.key.pressed,.key:active{background:#333;color:#fff;transform:translateY(2px);box-shadow:0 0 2px rgba(0,0,0,.5)}
+.key.pressed .ku,.key.pressed .kl{color:#fff}
+.key.locked{background:#ff6;border-color:#cc0}
+.key.mar-active{background:#fcc;border-color:#f44}
+.key.mar-active .label{color:#c00}
+.special-key{border-radius:5px;font-size:8px;min-width:2.8em}
+.special-key .label{text-align:center;line-height:1.1}
+@media(max-width:768px){
+  .key{height:2em;min-width:2em;flex:0 0 2em;font-size:8px}
+  .key .ku{font-size:6px}.key .kl{font-size:9px}
+  .special-key{font-size:6px}.kb-row{gap:1px}.keyboard{gap:2px}
+  #keyboard-area{padding:3px}#nameplate{padding:4px 0}
 }
-#nameplate span {
-  font-family: 'Georgia', serif; font-style: italic;
-  font-size: 14px; color: #c0b090; letter-spacing: 3px;
-  text-shadow: 1px 1px 2px rgba(0,0,0,0.5);
-  background: linear-gradient(to bottom, #4a4a4a, #2a2a2a);
-  padding: 2px 18px; border-radius: 10px;
-  border: 1px solid #555;
-}
-/* Keyboard Area */
-#keyboard-area {
-  background: #5ab4ac; display: flex; align-items: center;
-  justify-content: center; padding: 6px; flex-shrink: 0;
-  border-top: 3px solid #3d8c85;
-}
-.keyboard {
-  display: flex; flex-direction: column; gap: 4px;
-  align-items: center; width: 100%;
-}
-.kb-row {
-  display: flex; gap: 3px; justify-content: center; width: 100%;
-}
-.key {
-  height: 2.6em; min-width: 2.6em; border-radius: 50%;
-  background: #f5f0e8; border: 2px solid #999;
-  display: flex; flex-direction: column; align-items: center;
-  justify-content: center; cursor: pointer; font-size: 11px;
-  font-family: 'Courier New', monospace; font-weight: bold;
-  color: #222; box-shadow: 1px 2px 4px rgba(0,0,0,0.3);
-  transition: background 0.05s, transform 0.05s;
-  flex: 0 0 2.6em; position: relative;
-  -webkit-tap-highlight-color: transparent;
-}
-.key .upper { font-size: 8px; color: #555; line-height: 1; }
-.key .lower { font-size: 12px; line-height: 1; }
-.key.pressed, .key:active {
-  background: #333; color: #fff; transform: translateY(2px);
-  box-shadow: 0 0 2px rgba(0,0,0,0.5);
-}
-.key.pressed .upper, .key.pressed .lower { color: #fff; }
-.key.locked { background: #ff6; border-color: #cc0; }
-.key.mar-active { background: #fcc; border-color: #f44; }
-.key.mar-active .label { color: #c00; }
-.special-key { border-radius: 6px; font-size: 9px; min-width: 3em; }
-.special-key .label { text-align: center; line-height: 1.2; }
-
-/* Responsive */
-@media (max-width: 768px) {
-  .key { height: 2.1em; min-width: 2.1em; flex: 0 0 2.1em; font-size: 9px; }
-  .key .upper { font-size: 7px; }
-  .key .lower { font-size: 10px; }
-  .special-key { font-size: 7px; }
-  .kb-row { gap: 2px; }
-  .keyboard { gap: 3px; }
-  #keyboard-area { padding: 4px; }
-}
-@media (max-width: 480px) {
-  .key { height: 1.7em; min-width: 1.7em; flex: 0 0 1.7em; font-size: 7px; }
-  .key .upper { font-size: 6px; }
-  .key .lower { font-size: 8px; }
-  .special-key { font-size: 6px; }
-  .kb-row { gap: 1px; }
+@media(max-width:480px){
+  .key{height:1.6em;min-width:1.6em;flex:0 0 1.6em;font-size:6px}
+  .key .ku{font-size:5px}.key .kl{font-size:7px}
+  .special-key{font-size:5px}.kb-row{gap:1px}
+  #roll-buttons{width:24px}#roll-buttons button{width:20px;height:20px;font-size:9px}
 }
 </style>
 </body>
