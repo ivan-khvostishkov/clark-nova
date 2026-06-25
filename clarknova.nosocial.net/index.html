@@ -6,7 +6,7 @@
 <title>Clark Nova Typewriter by NoSocial.Net</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&family=Special+Elite&family=EB+Garamond:ital@1&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Courier+Prime:wght@400;700&family=Special+Elite&family=EB+Garamond:ital,wght@1,500;1,700&display=swap" rel="stylesheet">
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 html,body{width:100%;height:100%;overflow:hidden;background:#1a1a1a;
@@ -103,21 +103,37 @@ function playBell(){
   g.gain.setValueAtTime(0.3,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.6);
   osc.connect(g);g.connect(ac.destination);osc.start(t);osc.stop(t+0.6);}catch(e){}
 }
-// CR: Hrrr-r-r-r boom (saw rattle + hard stop)
+// CR: трещётка - деревяшка по стиральной доске, ускоряющееся трещание + удар
 function playCR(){
   try{const ac=getAC(),t=ac.currentTime,sr=ac.sampleRate;
-  const buf=ac.createBuffer(1,Math.floor(sr*0.35),sr);const d=buf.getChannelData(0);
-  for(let i=0;i<d.length;i++){const p=i/d.length;
-    const env=p<0.05?p*20:(p<0.8?1.0:0);
-    const saw=Math.sin(i*2*Math.PI*55/sr)*0.15;
-    const rattle=(Math.random()*2-1)*0.2*Math.sin(i*2*Math.PI*(250+p*100)/sr);
-    d[i]=env*(saw+rattle*(0.5+p*0.5));
-    if(p>0.78&&p<0.88){d[i]+=0.5*Math.exp(-(p-0.78)*25)*Math.sin(i*2*Math.PI*90/sr);}
-    if(p>0.82){d[i]+=Math.exp(-(p-0.82)*18)*0.3*(Math.random()*2-1);}
+  const len=0.45;
+  const buf=ac.createBuffer(1,Math.floor(sr*len),sr);const d=buf.getChannelData(0);
+  // Ребристая доска: равномерные щелчки с ускорением (как палочка по рёбрам)
+  // Каждый щелчок = короткий треск (белый шум 2-3ms)
+  const totalClicks=22;
+  for(let c=0;c<totalClicks;c++){
+    // Квадратичное ускорение: щелчки всё ближе друг к другу
+    const clickPos=(c/totalClicks);
+    const clickTime=clickPos*clickPos*0.38;
+    const clickSample=Math.floor(clickTime*sr);
+    // Каждый щелчок: 2ms треск + деревянный резонанс
+    const clickDur=Math.floor(sr*0.003);
+    const volume=0.25+c/totalClicks*0.2; // громче к концу
+    for(let j=0;j<clickDur&&clickSample+j<d.length;j++){
+      const e=Math.exp(-j/(sr*0.0008));
+      // Деревянный щелчок: шум + высокая синусоида
+      d[clickSample+j]+=e*volume*((Math.random()*2-1)*0.7+Math.sin(j*2*Math.PI*2200/sr)*0.3);
+    }
+  }
+  // Щелчок в конце - каретка встала в паз (короткий сухой клик)
+  const boomStart=Math.floor(sr*0.39);
+  const clickLen=Math.floor(sr*0.003);
+  for(let i=boomStart;i<boomStart+clickLen&&i<d.length;i++){
+    const bp=(i-boomStart)/clickLen;
+    d[i]+=0.5*Math.exp(-bp*3)*(Math.random()*2-1);
   }
   const src=ac.createBufferSource();src.buffer=buf;
-  const f=ac.createBiquadFilter();f.type='lowpass';f.frequency.value=1500;
-  src.connect(f);f.connect(ac.destination);src.start(t);}catch(e){}
+  src.connect(ac.destination);src.start(t);}catch(e){}
 }
 // Space/backspace/tab: short carriage slide
 function playSlide(){
@@ -283,6 +299,7 @@ function handleKeyDown(e){
   if(c==='Backspace'){doBackspace();hlK('Backspace',1);e.preventDefault();return;}
   if(c==='Tab'){doTab();hlK('Tab',1);e.preventDefault();return;}
   if(c==='Space'){doSpace();hlK('Space',1);e.preventDefault();return;}
+  if(c==='ControlRight'){doMarRel();hlK('MarRel',1);e.preventDefault();return;}
   if(c==='ArrowUp'){doUp();hlK('ArrowUp',1);e.preventDefault();return;}
   if(c==='ArrowDown'){doDown();hlK('ArrowDown',1);e.preventDefault();return;}
   const kd=codeToKey[c];
@@ -317,15 +334,21 @@ function buildKB(){
   const r4=mkR();r4.appendChild(mkS('\u21E7','ShiftLeft',1.6));
   keyRows[3].forEach(k=>r4.appendChild(mkC(k)));
   r4.appendChild(mkS('\u21E7','ShiftRight',1.6));r4.appendChild(mkS('MR','MarRel',1.1));kb.appendChild(r4);
-  const r5=mkR();const spKey=mkS('','Space',8);spKey.style.flex='1 1 45%';spKey.style.maxWidth='45%';spKey.style.borderRadius='6px';spKey.style.aspectRatio='auto';spKey.style.height='34px';kb.appendChild(r5);r5.appendChild(spKey);
+  const r5=mkR();const spKey=mkS('','Space',8);spKey.style.flex='1 1 45%';spKey.style.maxWidth='45%';spKey.style.borderRadius='6px';spKey.style.aspectRatio='auto';spKey.style.height='28px';kb.appendChild(r5);r5.appendChild(spKey);
   keyboardArea.innerHTML='';keyboardArea.appendChild(kb);
 }
 function mkR(){const d=document.createElement('div');d.className='kb-row';return d;}
 function mkC(kd){
   const el=document.createElement('div');el.className='key ck';
-  // Burn text into a canvas for the key face so zoom doesn't break it
   el.setAttribute('data-u',kd.u);el.setAttribute('data-l',kd.l);
-  el.innerHTML='<span class="ku">'+esc(kd.u)+'</span><span class="kl">'+esc(kd.l)+'</span>';
+  // Letter keys (a-z): show only uppercase, bigger
+  const isLetter=(kd.l.length===1&&kd.l>='a'&&kd.l<='z');
+  if(isLetter){
+    el.innerHTML='<span class="kl kl-only">'+esc(kd.u)+'</span>';
+  } else {
+    // Symbol/number keys: show both, upper closer to lower
+    el.innerHTML='<span class="ku">'+esc(kd.u)+'</span><span class="kl">'+esc(kd.l)+'</span>';
+  }
   keyElements[kd.c]=el;
   const act=()=>typeCharacter(isShifted()?kd.u:kd.l);
   el.addEventListener('mousedown',e=>{e.preventDefault();el.classList.add('pressed');act();});
@@ -515,7 +538,7 @@ function clampView(){
 // === LAYOUT ===
 function layout(){
   const appW=window.innerWidth,appH=window.innerHeight;
-  const kbH=Math.max(160,Math.floor(appH*0.35));
+  const kbH=Math.max(140,Math.min(220,Math.floor(appH*0.28)));
   const npH=48;
   const caH=appH-kbH-npH;
   document.getElementById('canvas-area').style.height=caH+'px';
@@ -523,23 +546,62 @@ function layout(){
   document.getElementById('nameplate').style.height=npH+'px';
 
   const vpW=viewport.clientWidth;
-  const vpH=caH-2*RULER_H;
-  viewport.style.height=vpH+'px';
+  const vpH2=caH-2*RULER_H;
+  viewport.style.height=vpH2+'px';
 
-  // Base scale: fit paper width in viewport with some padding
+  // Base scale: fit paper width in viewport
   baseScale=Math.min((vpW-20)/CANVAS_W,1);
-  if(viewScale<baseScale*0.5)viewScale=baseScale;
-  if(viewScale===1||viewScale<baseScale)viewScale=baseScale;
+  
+  // On small screens, default zoom so ~24 columns (col 8-42) fill the width
+  // This makes typed text readable. User can still zoom out to see full page.
+  const smallScreen=(vpW<800);
+  if(smallScreen){
+    // Show about 24 columns worth = 24*31 = 744px of paper in vpW
+    const initialScale=Math.min((vpW-10)/(24*CELL_W),baseScale*3);
+    if(viewScale<=baseScale)viewScale=initialScale;
+  } else {
+    if(viewScale<baseScale*0.5)viewScale=baseScale;
+    if(viewScale===1||viewScale<baseScale)viewScale=baseScale;
+  }
 
-  // Center paper initially
+  // Position paper: center on initial cursor area
   const pw=CANVAS_W*viewScale;
-  viewX=Math.round((vpW-pw)/2);
-  viewY=10;
+  if(smallScreen){
+    // Center on cursor column area (col 8-42 roughly)
+    const cursorScreenX=(INITIAL_COL-1)*CELL_W*viewScale;
+    viewX=Math.round(vpW/2-cursorScreenX-CELL_W*viewScale*6);
+    const cursorScreenY=(GRID_TOP+(INITIAL_ROW-1)*CELL_H)*viewScale;
+    viewY=Math.round(vpH2*0.15-cursorScreenY);
+  } else {
+    viewX=Math.round((vpW-pw)/2);
+    viewY=10;
+  }
+  clampView();
   applyView();
 }
 
 function init(){buildKB();layout();updateCursor();
   window.addEventListener('resize',()=>{layout();updateCursor();});
+  // Enable iOS long-press save: overlay an <img> that updates on long-press
+  let longPressTimer=null;
+  const pc=document.getElementById('paper-container');
+  pc.addEventListener('touchstart',function(e){
+    if(e.touches.length===1){
+      longPressTimer=setTimeout(()=>{
+        // Create temporary img overlay for iOS save dialog
+        const dataUrl=canvas.toDataURL('image/png');
+        let img=document.getElementById('save-img');
+        if(!img){img=document.createElement('img');img.id='save-img';
+          img.style.cssText='position:absolute;top:0;left:0;width:100%;height:100%;z-index:10;';
+          pc.appendChild(img);}
+        img.src=dataUrl;
+        // Remove after 3 seconds (user has time to long-press the img)
+        setTimeout(()=>{if(img.parentNode)img.parentNode.removeChild(img);},3000);
+      },600);
+    }
+  },{passive:true});
+  pc.addEventListener('touchend',()=>{clearTimeout(longPressTimer);},{passive:true});
+  pc.addEventListener('touchmove',()=>{clearTimeout(longPressTimer);},{passive:true});
 }
 // Wait for Special Elite font to fully load before enabling typing
 document.fonts.load('28px "Special Elite"').then(()=>{fontsReady=true;init();}).catch(()=>{fontsReady=true;init();});
@@ -552,8 +614,8 @@ border-top:1px solid #555;border-bottom:1px solid #222;flex-shrink:0;padding:10p
 .np-plate{display:inline-flex;align-items:center;gap:8px;
 background:linear-gradient(to bottom,#4a4a4a,#2a2a2a);
 padding:6px 22px;border-radius:14px;border:1px solid #555}
-.np-text{font-family:'EB Garamond',Georgia,serif;font-style:italic;font-size:14px;
-color:#c0b090;letter-spacing:3px;text-shadow:1px 1px 2px rgba(0,0,0,0.5)}
+.np-text{font-family:'EB Garamond',Georgia,serif;font-style:italic;font-size:17px;font-weight:700;
+color:#d8c89c;letter-spacing:3px;text-shadow:0 0 3px rgba(200,180,120,0.3),1px 1px 2px rgba(0,0,0,0.6)}
 .np-screw{display:inline-block;width:10px;height:10px;border-radius:50%;
 background:radial-gradient(circle at 3px 3px,#aaa,#444);
 border:1px solid #333;box-shadow:inset 0 1px 2px rgba(255,255,255,0.2);overflow:hidden;position:relative}
@@ -571,8 +633,9 @@ font-family:'Courier Prime','Courier New',monospace;font-weight:bold;color:#222;
 box-shadow:1px 1px 2px rgba(0,0,0,0.3);transition:background .05s,transform .05s;
 flex:1 1 0;aspect-ratio:1;max-width:36px;
 -webkit-tap-highlight-color:transparent;overflow:hidden}
-.key .ku{font-size:8px;color:#555;line-height:1}
-.key .kl{font-size:13px;line-height:1}
+.key .ku{font-size:11px;color:#444;line-height:1;margin-bottom:-1px}
+.key .kl{font-size:16px;line-height:1}
+.key .kl-only{font-size:18px;line-height:1}
 .key.pressed,.key:active{background:#333;color:#fff;transform:translateY(1px);box-shadow:none}
 .key.pressed .ku,.key.pressed .kl{color:#fff}
 .key.locked{background:#ff6;border-color:#cc0}
@@ -584,14 +647,14 @@ flex:1 1 0;aspect-ratio:1;max-width:36px;
 @media(max-width:600px){
   .keyboard{max-width:100%}
   .key{height:30px;font-size:11px;max-width:30px}
-  .key .ku{font-size:7px}.key .kl{font-size:11px}
+  .key .ku{font-size:9px}.key .kl{font-size:14px}.key .kl-only{font-size:16px}
   .sk{font-size:8px}
   .kb-row{gap:1px}
   #keyboard-area{padding:3px 1px}
 }
 @media(max-width:400px){
   .key{height:26px;font-size:9px;max-width:26px}
-  .key .ku{font-size:5px}.key .kl{font-size:9px}
+  .key .ku{font-size:8px}.key .kl{font-size:12px}.key .kl-only{font-size:14px}
   .sk{font-size:7px}
 }
 </style>
