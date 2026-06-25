@@ -9,21 +9,24 @@
 html,body{width:100%;height:100%;overflow:hidden;background:#1a1a1a;
 font-family:monospace;touch-action:none;user-select:none;-webkit-user-select:none}
 #app{width:100%;height:100%;display:flex;flex-direction:column}
-#canvas-area{flex:1;overflow:hidden;display:flex;flex-direction:column;align-items:stretch;background:#2a2a2a}
-#vp-row{flex:1;display:flex;align-items:stretch;overflow:hidden}
-#paper-viewport{flex:1;overflow-y:auto;overflow-x:hidden;scrollbar-width:thin;scrollbar-color:#555 #2a2a2a}
-#paper-viewport::-webkit-scrollbar{width:10px}
-#paper-viewport::-webkit-scrollbar-track{background:#2a2a2a}
-#paper-viewport::-webkit-scrollbar-thumb{background:#555;border-radius:4px}
-#paper-wrap{position:relative}
-.paper-pad{background:#2a2a2a;width:100%}
-#paper-container{position:relative;background:#fff;box-shadow:0 2px 20px rgba(0,0,0,0.5)}
-#typing-canvas{display:block;background:#fff}
+#canvas-area{flex:1;overflow:hidden;display:flex;flex-direction:column;align-items:stretch;background:#2a2a2a;position:relative}
+#vp-row{flex:1;display:flex;align-items:stretch;overflow:hidden;position:relative}
+#paper-viewport{flex:1;overflow:hidden;position:relative;cursor:grab}
+#paper-viewport.dragging{cursor:grabbing}
+#paper-inner{position:absolute;top:0;left:0;transform-origin:0 0}
+#paper-container{position:relative;background:#fff;box-shadow:0 2px 20px rgba(0,0,0,0.5);
+width:2480px;height:3508px}
+#typing-canvas{display:block;width:2480px;height:3508px}
 #cursor{position:absolute;background:rgba(0,0,0,0.75);pointer-events:none;animation:blink 1s step-end infinite}
 @keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
 #cursor.red{background:rgba(200,0,0,0.85)}
-.ruler-wrap{height:32px;background:#111;flex-shrink:0;overflow:hidden;position:relative}
+.ruler-wrap{height:28px;background:#111;flex-shrink:0;overflow:hidden;position:relative}
 .ruler-canvas{display:block;position:absolute;top:0}
+#roll-col{width:28px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:40px;background:#222;flex-shrink:0}
+.roll-btn{width:0;height:0;cursor:pointer;border:10px solid transparent;-webkit-tap-highlight-color:transparent}
+#roll-up{border-bottom:14px solid #888;border-top:none}
+#roll-down{border-top:14px solid #888;border-bottom:none}
+.roll-btn:active,.roll-btn.pressed{filter:brightness(1.8)}
 </style>
 </head>
 <body>
@@ -31,76 +34,62 @@ font-family:monospace;touch-action:none;user-select:none;-webkit-user-select:non
 <div id="canvas-area">
 <div id="ruler-top" class="ruler-wrap"></div>
 <div id="vp-row">
-<div id="roll-buttons"><button id="roll-up">&#9650;</button><button id="roll-down">&#9660;</button></div>
-<div id="paper-viewport"><div id="paper-wrap">
-<div class="paper-pad" id="pad-top"></div>
-<div id="paper-container">
+<div id="roll-col"><div id="roll-up" class="roll-btn"></div><div id="roll-down" class="roll-btn"></div></div>
+<div id="paper-viewport"><div id="paper-inner"><div id="paper-container">
 <canvas id="typing-canvas" width="2480" height="3508"></canvas>
 <div id="cursor"></div>
-</div>
-<div class="paper-pad" id="pad-bottom"></div>
-</div></div>
+</div></div></div>
 </div>
 <div id="ruler-bottom" class="ruler-wrap"></div>
 </div>
-<div id="nameplate"><span class="np-plate"><span class="np-screw l"></span><span class="np-text">Clark Nova</span><span class="np-screw r"></span></span></div>
+<div id="nameplate"><span class="np-plate"><span class="np-screw"></span><span class="np-text">Clark Nova</span><span class="np-screw"></span></span></div>
 <div id="keyboard-area"></div>
 </div>
 <script>
 (function(){
 'use strict';
 // === GRID ===
-// Page 2480x3508. 80 cols, CELL_W=31.
-// CELL_H=44, ROWS=79 (79*44=3476, 32px unused at bottom).
-// Grid starts at y=0. Rows 1-4 are "top margin". Initial cursor = row 5, col 11.
-// User can go up to row 1. Columns 1-10 left margin, 71-80 right margin.
-// Notch 0 = left edge of paper (pixel 0). Notch 80 = right edge (pixel 2480).
-// Margin notches at 10 and 70.
+// 2480x3508. 80 cols. CELL_W=31. CELL_H=44. ROWS=79.
+// 79*44=3476. Remainder=32. Pad: 16 top + 16 bottom. 16+3476+16=3508.
 const CELL_W=31,CELL_H=44,COLS=80,ROWS=79;
 const CANVAS_W=2480,CANVAS_H=3508;
-// 79*44=3476, remainder=32. Split: 16px top + 16px bottom padding.
-const GRID_PAD_TOP=16,GRID_PAD_BOT=16; // 16+3476+16=3508
+const GRID_TOP=16; // padding before first row
 const LEFT_MARGIN=11,RIGHT_MARGIN=70,HARD_RIGHT=80,BELL_COL=63;
 const INITIAL_ROW=5,INITIAL_COL=11;
-const RULER_H=32,PAPER_PAD=40,RULER_EXTRA=4;
-const ROLL_W=36;
+const RULER_H=28,ROLL_W=28;
 
 let cursorCol=INITIAL_COL,cursorRow=INITIAL_ROW;
 let shiftLocked=false,shiftHeld=false,marginReleased=false;
-let audioCtx=null,currentScale=1;
+let audioCtx=null;
+
+// View state
+let viewScale=1; // current zoom scale of paper
+let viewX=0,viewY=0; // pan offset (paper-inner left/top)
+let baseScale=1; // scale that fits paper width in viewport
 
 const canvas=document.getElementById('typing-canvas');
 const ctx=canvas.getContext('2d');
 const cursorEl=document.getElementById('cursor');
 const viewport=document.getElementById('paper-viewport');
-const paperWrap=document.getElementById('paper-wrap');
-const paperContainer=document.getElementById('paper-container');
-const padTop=document.getElementById('pad-top');
-const padBottom=document.getElementById('pad-bottom');
+const paperInner=document.getElementById('paper-inner');
 
 // === CANVAS INIT ===
-ctx.fillStyle='#ffffff';
-ctx.fillRect(0,0,CANVAS_W,CANVAS_H);
-// Watermarks
+ctx.fillStyle='#ffffff';ctx.fillRect(0,0,CANVAS_W,CANVAS_H);
 const wm=[[620,877],[1860,877],[620,2631],[1860,2631]];
 ctx.font='bold 48px Courier New,Courier,monospace';
-ctx.fillStyle='rgba(254,254,254,1)';
-ctx.textAlign='center';ctx.textBaseline='middle';
+ctx.fillStyle='rgba(254,254,254,1)';ctx.textAlign='center';ctx.textBaseline='middle';
 wm.forEach(([x,y])=>{ctx.fillText('Clark Nova',x,y);ctx.fillText('by NoSocial.Net',x,y+56);});
 ctx.textAlign='start';ctx.textBaseline='alphabetic';
 
 // === AUDIO ===
 function getAC(){if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();return audioCtx;}
 function playKeystroke(){
-  try{const ac=getAC(),t=ac.currentTime;
-  const buf=ac.createBuffer(1,Math.floor(ac.sampleRate*0.035),ac.sampleRate);
+  try{const ac=getAC(),t=ac.currentTime,sr=ac.sampleRate;
+  const buf=ac.createBuffer(1,Math.floor(sr*0.035),sr);
   const d=buf.getChannelData(0);
-  for(let i=0;i<d.length;i++){
-    const env=Math.exp(-i/(ac.sampleRate*0.006));
-    d[i]=env*(Math.random()*2-1)*0.5+env*0.25*Math.sin(i*2*Math.PI*4500/ac.sampleRate);
-  }
-  const src=ac.createBufferSource();src.buffer=buf;
-  src.connect(ac.destination);src.start(t);
+  for(let i=0;i<d.length;i++){const env=Math.exp(-i/(sr*0.006));
+    d[i]=env*(Math.random()*2-1)*0.5+env*0.25*Math.sin(i*2*Math.PI*4500/sr);}
+  const src=ac.createBufferSource();src.buffer=buf;src.connect(ac.destination);src.start(t);
   }catch(e){}
 }
 function playBell(){
@@ -111,91 +100,86 @@ function playBell(){
   osc.connect(g);g.connect(ac.destination);osc.start(t);osc.stop(t+0.6);
   }catch(e){}
 }
-function playCarriageReturn(){
-  try{const ac=getAC(),t=ac.currentTime;
-  const len=0.25,sr=ac.sampleRate;
-  const buf=ac.createBuffer(1,Math.floor(sr*len),sr);
-  const d=buf.getChannelData(0);
-  for(let i=0;i<d.length;i++){
-    const p=i/d.length;
+function playCR(){
+  try{const ac=getAC(),t=ac.currentTime,sr=ac.sampleRate;
+  const buf=ac.createBuffer(1,Math.floor(sr*0.22),sr);const d=buf.getChannelData(0);
+  for(let i=0;i<d.length;i++){const p=i/d.length;
     const env=p<0.05?p*20:(p<0.7?1:Math.exp(-(p-0.7)*8));
-    const noise=(Math.random()*2-1)*0.15;
-    const rumble=Math.sin(i*2*Math.PI*80/sr)*0.12;
-    const rattle=Math.sin(i*2*Math.PI*(200+p*100)/sr)*0.06;
-    d[i]=env*(noise+rumble+rattle);
-  }
+    d[i]=env*((Math.random()*2-1)*0.15+0.12*Math.sin(i*2*Math.PI*80/sr)+0.05*Math.sin(i*2*Math.PI*(200+p*80)/sr));}
   const src=ac.createBufferSource();src.buffer=buf;
-  const filt=ac.createBiquadFilter();filt.type='lowpass';filt.frequency.value=1200;
-  src.connect(filt);filt.connect(ac.destination);src.start(t);
-  }catch(e){}
+  const f=ac.createBiquadFilter();f.type='lowpass';f.frequency.value=1200;
+  src.connect(f);f.connect(ac.destination);src.start(t);}catch(e){}
 }
 function playRoll(){
-  try{const ac=getAC(),t=ac.currentTime;
-  const buf=ac.createBuffer(1,Math.floor(ac.sampleRate*0.08),ac.sampleRate);
-  const d=buf.getChannelData(0);
-  for(let i=0;i<d.length;i++){
-    const env=Math.exp(-i/(ac.sampleRate*0.02));
-    d[i]=env*((Math.random()*2-1)*0.15+0.08*Math.sin(i*2*Math.PI*150/ac.sampleRate));
-  }
+  try{const ac=getAC(),t=ac.currentTime,sr=ac.sampleRate;
+  const buf=ac.createBuffer(1,Math.floor(sr*0.07),sr);const d=buf.getChannelData(0);
+  for(let i=0;i<d.length;i++){const env=Math.exp(-i/(sr*0.02));
+    d[i]=env*((Math.random()*2-1)*0.12+0.06*Math.sin(i*2*Math.PI*150/sr));}
   const src=ac.createBufferSource();src.buffer=buf;
-  const filt=ac.createBiquadFilter();filt.type='lowpass';filt.frequency.value=500;
-  src.connect(filt);filt.connect(ac.destination);src.start(t);
-  }catch(e){}
+  const f=ac.createBiquadFilter();f.type='lowpass';f.frequency.value=500;
+  src.connect(f);f.connect(ac.destination);src.start(t);}catch(e){}
 }
-
 // === CHARACTER MAP ===
 const keyRows=[
-  [{l:'1',u:'!',c:'Digit1'},{l:'2',u:'"',c:'Digit2'},{l:'3',u:'#',c:'Digit3'},
-   {l:'4',u:'$',c:'Digit4'},{l:'5',u:'%',c:'Digit5'},{l:'6',u:'_',c:'Digit6'},
-   {l:'7',u:'&',c:'Digit7'},{l:'8',u:"'",c:'Digit8'},{l:'9',u:'(',c:'Digit9'},
-   {l:'0',u:')',c:'Digit0'},{l:'-',u:'*',c:'Minus'},{l:'=',u:'+',c:'Equal'}],
-  [{l:'q',u:'Q',c:'KeyQ'},{l:'w',u:'W',c:'KeyW'},{l:'e',u:'E',c:'KeyE'},
-   {l:'r',u:'R',c:'KeyR'},{l:'t',u:'T',c:'KeyT'},{l:'y',u:'Y',c:'KeyY'},
-   {l:'u',u:'U',c:'KeyU'},{l:'i',u:'I',c:'KeyI'},{l:'o',u:'O',c:'KeyO'},
-   {l:'p',u:'P',c:'KeyP'},{l:'\u00BD',u:'\u00BC',c:'BracketLeft'}],
-  [{l:'a',u:'A',c:'KeyA'},{l:'s',u:'S',c:'KeyS'},{l:'d',u:'D',c:'KeyD'},
-   {l:'f',u:'F',c:'KeyF'},{l:'g',u:'G',c:'KeyG'},{l:'h',u:'H',c:'KeyH'},
-   {l:'j',u:'J',c:'KeyJ'},{l:'k',u:'K',c:'KeyK'},{l:'l',u:'L',c:'KeyL'},
-   {l:';',u:':',c:'Semicolon'},{l:'\u00A2',u:'@',c:'Quote'}],
-  [{l:'z',u:'Z',c:'KeyZ'},{l:'x',u:'X',c:'KeyX'},{l:'c',u:'C',c:'KeyC'},
-   {l:'v',u:'V',c:'KeyV'},{l:'b',u:'B',c:'KeyB'},{l:'n',u:'N',c:'KeyN'},
-   {l:'m',u:'M',c:'KeyM'},{l:',',u:',',c:'Comma'},{l:'.',u:'.',c:'Period'},
-   {l:'/',u:'?',c:'Slash'}]
+[{l:'1',u:'!',c:'Digit1'},{l:'2',u:'"',c:'Digit2'},{l:'3',u:'#',c:'Digit3'},
+ {l:'4',u:'$',c:'Digit4'},{l:'5',u:'%',c:'Digit5'},{l:'6',u:'_',c:'Digit6'},
+ {l:'7',u:'&',c:'Digit7'},{l:'8',u:"'",c:'Digit8'},{l:'9',u:'(',c:'Digit9'},
+ {l:'0',u:')',c:'Digit0'},{l:'-',u:'*',c:'Minus'},{l:'=',u:'+',c:'Equal'}],
+[{l:'q',u:'Q',c:'KeyQ'},{l:'w',u:'W',c:'KeyW'},{l:'e',u:'E',c:'KeyE'},
+ {l:'r',u:'R',c:'KeyR'},{l:'t',u:'T',c:'KeyT'},{l:'y',u:'Y',c:'KeyY'},
+ {l:'u',u:'U',c:'KeyU'},{l:'i',u:'I',c:'KeyI'},{l:'o',u:'O',c:'KeyO'},
+ {l:'p',u:'P',c:'KeyP'},{l:'\u00BD',u:'\u00BC',c:'BracketLeft'}],
+[{l:'a',u:'A',c:'KeyA'},{l:'s',u:'S',c:'KeyS'},{l:'d',u:'D',c:'KeyD'},
+ {l:'f',u:'F',c:'KeyF'},{l:'g',u:'G',c:'KeyG'},{l:'h',u:'H',c:'KeyH'},
+ {l:'j',u:'J',c:'KeyJ'},{l:'k',u:'K',c:'KeyK'},{l:'l',u:'L',c:'KeyL'},
+ {l:';',u:':',c:'Semicolon'},{l:'\u00A2',u:'@',c:'Quote'}],
+[{l:'z',u:'Z',c:'KeyZ'},{l:'x',u:'X',c:'KeyX'},{l:'c',u:'C',c:'KeyC'},
+ {l:'v',u:'V',c:'KeyV'},{l:'b',u:'B',c:'KeyB'},{l:'n',u:'N',c:'KeyN'},
+ {l:'m',u:'M',c:'KeyM'},{l:',',u:',',c:'Comma'},{l:'.',u:'.',c:'Period'},
+ {l:'/',u:'?',c:'Slash'}]
 ];
-const codeToKey={};
-keyRows.forEach(r=>r.forEach(k=>{codeToKey[k.c]=k;}));
-// === CURSOR ===
-// Grid: column 1 starts at x=0, column 80 ends at x=2480.
-// So column C occupies x from (C-1)*31 to C*31.
-// Row R occupies y from GRID_PAD_TOP+(R-1)*44 to GRID_PAD_TOP+R*44.
+const codeToKey={};keyRows.forEach(r=>r.forEach(k=>{codeToKey[k.c]=k;}));
+
+// === CURSOR & VIEW ===
+function cursorPxX(){return(cursorCol-1)*CELL_W;}
+function cursorPxY(){return GRID_TOP+(cursorRow-1)*CELL_H;}
+
 function updateCursor(){
-  cursorEl.style.left=((cursorCol-1)*CELL_W)+'px';
-  cursorEl.style.top=(GRID_PAD_TOP+(cursorRow-1)*CELL_H)+'px';
+  cursorEl.style.left=cursorPxX()+'px';
+  cursorEl.style.top=cursorPxY()+'px';
   cursorEl.style.width=CELL_W+'px';
   cursorEl.style.height=CELL_H+'px';
-  // Red: past margin and locked, OR at hard right after release
   if((cursorCol>RIGHT_MARGIN&&!marginReleased)||(cursorCol>=HARD_RIGHT&&marginReleased)){
     cursorEl.classList.add('red');
   }else{cursorEl.classList.remove('red');}
   updateMarRelVis();
 }
-function ensureCursorVisibleOnCR(){
-  const s=currentScale;
-  const cy=PAPER_PAD+(GRID_PAD_TOP+(cursorRow-1)*CELL_H)*s;
-  const cb=cy+CELL_H*s;
-  const vpH=viewport.clientHeight;
-  const st=viewport.scrollTop;
-  if(cb>st+vpH)viewport.scrollTop=cb-vpH;
-  else if(cy<st)viewport.scrollTop=cy;
+
+function panToCursor(){
+  // Adjust viewX/viewY so cursor is visible in viewport
+  const vpW=viewport.clientWidth,vpH=viewport.clientHeight;
+  const cx=cursorPxX()*viewScale,cy=cursorPxY()*viewScale;
+  const cw=CELL_W*viewScale,ch=CELL_H*viewScale;
+  // Current visible region: -viewX to -viewX+vpW, -viewY to -viewY+vpH
+  if(cx+viewX<0)viewX=-cx+10;
+  if(cx+cw+viewX>vpW)viewX=vpW-cx-cw-10;
+  if(cy+viewY<0)viewY=-cy+10;
+  if(cy+ch+viewY>vpH)viewY=vpH-cy-ch-10;
+  applyView();
 }
+
+function applyView(){
+  paperInner.style.transform='translate('+viewX+'px,'+viewY+'px) scale('+viewScale+')';
+  drawRulers();
+}
+
 function updateMarRelVis(){
   const el=keyElements['MarRel'];if(!el)return;
-  if(cursorCol>RIGHT_MARGIN&&!marginReleased){el.classList.add('mar-active');}
-  else{el.classList.remove('mar-active');}
+  if(cursorCol>RIGHT_MARGIN&&!marginReleased)el.classList.add('mar-active');
+  else el.classList.remove('mar-active');
 }
-function checkBell(oldCol,newCol){if(oldCol<BELL_COL&&newCol>=BELL_COL)playBell();}
-
-// === TYPING ===
+function checkBell(o,n){if(o<BELL_COL&&n>=BELL_COL)playBell();}
+// === TYPING LOGIC ===
 function isShifted(){return shiftLocked||shiftHeld;}
 function canType(){
   if(cursorCol>HARD_RIGHT)return false;
@@ -205,242 +189,273 @@ function canType(){
 function typeCharacter(ch){
   if(!canType())return;
   const x=(cursorCol-1)*CELL_W;
-  const y=GRID_PAD_TOP+(cursorRow-1)*CELL_H;
+  const y=GRID_TOP+(cursorRow-1)*CELL_H;
   ctx.font='26px "Courier New",Courier,monospace';
-  ctx.fillStyle='#0a0a1a';
-  ctx.textBaseline='top';
+  ctx.fillStyle='#0a0a1a';ctx.textBaseline='top';
   ctx.fillText(ch,x+5,y+10);
   playKeystroke();
   if(cursorCol>=HARD_RIGHT){updateCursor();return;}
-  const oldCol=cursorCol;
-  cursorCol++;
-  if(cursorCol>RIGHT_MARGIN&&!marginReleased){cursorCol=RIGHT_MARGIN+1;}
-  checkBell(oldCol,cursorCol);
-  updateCursor();
+  const oc=cursorCol;cursorCol++;
+  if(cursorCol>RIGHT_MARGIN&&!marginReleased)cursorCol=RIGHT_MARGIN+1;
+  checkBell(oc,cursorCol);updateCursor();panToCursor();
 }
 function doSpace(){
-  if(!canType())return;
-  playKeystroke();
+  if(!canType())return;playKeystroke();
   if(cursorCol>=HARD_RIGHT){updateCursor();return;}
-  const oldCol=cursorCol;
-  cursorCol++;
-  if(cursorCol>RIGHT_MARGIN&&!marginReleased){cursorCol=RIGHT_MARGIN+1;}
-  checkBell(oldCol,cursorCol);
-  updateCursor();
+  const oc=cursorCol;cursorCol++;
+  if(cursorCol>RIGHT_MARGIN&&!marginReleased)cursorCol=RIGHT_MARGIN+1;
+  checkBell(oc,cursorCol);updateCursor();panToCursor();
 }
 function doTab(){
-  // Tab stops: 1,6,11,16,21,26,31,36,41,46,51,56,61,66,71
-  if(!canType())return;
-  playKeystroke();
+  if(!canType())return;playKeystroke();
   if(cursorCol>=HARD_RIGHT){updateCursor();return;}
-  const oldCol=cursorCol;
-  // Next tab stop = ((cursorCol-1)/5 floored + 1)*5 + 1
-  let target=Math.floor((cursorCol-1)/5)*5+6;
-  if(target<=cursorCol)target+=5;
-  if(target>HARD_RIGHT)target=HARD_RIGHT;
-  if(target>RIGHT_MARGIN&&!marginReleased)target=RIGHT_MARGIN+1;
-  cursorCol=target;
-  checkBell(oldCol,cursorCol);
-  updateCursor();
+  const oc=cursorCol;
+  let t=Math.floor((cursorCol-1)/5)*5+6;
+  if(t<=cursorCol)t+=5;
+  if(t>HARD_RIGHT)t=HARD_RIGHT;
+  if(t>RIGHT_MARGIN&&!marginReleased)t=RIGHT_MARGIN+1;
+  cursorCol=t;checkBell(oc,cursorCol);updateCursor();panToCursor();
 }
-function doBackspace(){if(cursorCol>1){cursorCol--;updateCursor();}}
-function doCarriageReturn(){
+function doBackspace(){if(cursorCol>1){cursorCol--;updateCursor();panToCursor();}}
+function doCR(){
   if(cursorRow>=ROWS)return;
   cursorRow++;cursorCol=INITIAL_COL;marginReleased=false;
-  playCarriageReturn();updateCursor();ensureCursorVisibleOnCR();
+  playCR();updateCursor();panToCursor();
 }
-function doMarginRelease(){
-  if(cursorCol>RIGHT_MARGIN&&!marginReleased){
-    marginReleased=true;updateCursor();
-  }
+function doMarRel(){
+  if(cursorCol>RIGHT_MARGIN&&!marginReleased){marginReleased=true;updateCursor();}
 }
-function doCursorUp(){if(cursorRow>1){cursorRow--;playRoll();updateCursor();ensureCursorVisibleOnCR();}}
-function doCursorDown(){if(cursorRow<ROWS){cursorRow++;playRoll();updateCursor();ensureCursorVisibleOnCR();}}
+function doUp(){if(cursorRow>1){cursorRow--;playRoll();updateCursor();panToCursor();}}
+function doDown(){if(cursorRow<ROWS){cursorRow++;playRoll();updateCursor();panToCursor();}}
+
 // === KEYBOARD INPUT ===
 function handleKeyDown(e){
-  if(e.repeat)return;const code=e.code;
-  if(code==='ShiftLeft'||code==='ShiftRight'){shiftHeld=true;if(shiftLocked){shiftLocked=false;updateSLV();}hlK(code,true);e.preventDefault();return;}
-  if(code==='Enter'){doCarriageReturn();hlK('Enter',true);e.preventDefault();return;}
-  if(code==='Backspace'){doBackspace();hlK('Backspace',true);e.preventDefault();return;}
-  if(code==='Tab'){doTab();hlK('Tab',true);e.preventDefault();return;}
-  if(code==='Space'){doSpace();hlK('Space',true);e.preventDefault();return;}
-  if(code==='ArrowUp'){doCursorUp();hlK('ArrowUp',true);e.preventDefault();return;}
-  if(code==='ArrowDown'){doCursorDown();hlK('ArrowDown',true);e.preventDefault();return;}
-  const kd=codeToKey[code];
-  if(kd){typeCharacter(isShifted()?kd.u:kd.l);hlK(code,true);e.preventDefault();}
+  if(e.repeat)return;const c=e.code;
+  if(c==='ShiftLeft'||c==='ShiftRight'){shiftHeld=true;if(shiftLocked){shiftLocked=false;uSL();}hlK(c,1);e.preventDefault();return;}
+  if(c==='Enter'){doCR();hlK('Enter',1);e.preventDefault();return;}
+  if(c==='Backspace'){doBackspace();hlK('Backspace',1);e.preventDefault();return;}
+  if(c==='Tab'){doTab();hlK('Tab',1);e.preventDefault();return;}
+  if(c==='Space'){doSpace();hlK('Space',1);e.preventDefault();return;}
+  if(c==='ArrowUp'){doUp();hlK('ArrowUp',1);e.preventDefault();return;}
+  if(c==='ArrowDown'){doDown();hlK('ArrowDown',1);e.preventDefault();return;}
+  const kd=codeToKey[c];
+  if(kd){typeCharacter(isShifted()?kd.u:kd.l);hlK(c,1);e.preventDefault();}
 }
-function handleKeyUp(e){const code=e.code;
-  if(code==='ShiftLeft'||code==='ShiftRight'){shiftHeld=false;hlK(code,false);return;}
-  hlK(code,false);
-}
+function handleKeyUp(e){const c=e.code;
+  if(c==='ShiftLeft'||c==='ShiftRight'){shiftHeld=false;hlK(c,0);return;}hlK(c,0);}
 document.addEventListener('keydown',handleKeyDown);
 document.addEventListener('keyup',handleKeyUp);
-
 // === SCHEMATIC KEYBOARD ===
 const keyboardArea=document.getElementById('keyboard-area');
 const keyElements={};
-function hlK(code,on){const el=keyElements[code];if(el){if(on)el.classList.add('pressed');else el.classList.remove('pressed');}}
-function updateSLV(){const el=keyElements['ShiftLock'];if(el){if(shiftLocked)el.classList.add('locked');else el.classList.remove('locked');}}
-
+function hlK(c,on){const el=keyElements[c];if(el){if(on)el.classList.add('pressed');else el.classList.remove('pressed');}}
+function uSL(){const el=keyElements['ShiftLock'];if(el){if(shiftLocked)el.classList.add('locked');else el.classList.remove('locked');}}
 function buildKB(){
   const kb=document.createElement('div');kb.className='keyboard';
-  const r1=mkR();r1.appendChild(mkS('BACK\nSPACE','Backspace',1.5));
-  keyRows[0].forEach(k=>r1.appendChild(mkC(k)));r1.appendChild(mkS('TAB','Tab',1.5));kb.appendChild(r1);
+  const r1=mkR();r1.appendChild(mkS('BS','Backspace',1.4));
+  keyRows[0].forEach(k=>r1.appendChild(mkC(k)));r1.appendChild(mkS('TAB','Tab',1.4));kb.appendChild(r1);
   const r2=mkR();keyRows[1].forEach(k=>r2.appendChild(mkC(k)));kb.appendChild(r2);
-  const r3=mkR();r3.appendChild(mkS('SHIFT\nLOCK','ShiftLock',1.7));
-  keyRows[2].forEach(k=>r3.appendChild(mkC(k)));r3.appendChild(mkS('\u21B5','Enter',1.7));kb.appendChild(r3);
-  const r4=mkR();r4.appendChild(mkS('SHIFT','ShiftLeft',1.7));
+  const r3=mkR();r3.appendChild(mkS('LOCK','ShiftLock',1.6));
+  keyRows[2].forEach(k=>r3.appendChild(mkC(k)));r3.appendChild(mkS('\u21B5','Enter',1.6));kb.appendChild(r3);
+  const r4=mkR();r4.appendChild(mkS('\u21E7','ShiftLeft',1.6));
   keyRows[3].forEach(k=>r4.appendChild(mkC(k)));
-  r4.appendChild(mkS('SHIFT','ShiftRight',1.7));r4.appendChild(mkS('MAR\nREL','MarRel',1.2));kb.appendChild(r4);
-  const r5=mkR();r5.appendChild(mkS('','Space',9));kb.appendChild(r5);
+  r4.appendChild(mkS('\u21E7','ShiftRight',1.6));r4.appendChild(mkS('MR','MarRel',1.1));kb.appendChild(r4);
+  const r5=mkR();r5.appendChild(mkS('','Space',8));kb.appendChild(r5);
   keyboardArea.innerHTML='';keyboardArea.appendChild(kb);
 }
 function mkR(){const d=document.createElement('div');d.className='kb-row';return d;}
 function mkC(kd){
   const el=document.createElement('div');el.className='key ck';
+  // Burn text into a canvas for the key face so zoom doesn't break it
+  el.setAttribute('data-u',kd.u);el.setAttribute('data-l',kd.l);
   el.innerHTML='<span class="ku">'+esc(kd.u)+'</span><span class="kl">'+esc(kd.l)+'</span>';
   keyElements[kd.c]=el;
   const act=()=>typeCharacter(isShifted()?kd.u:kd.l);
   el.addEventListener('mousedown',e=>{e.preventDefault();el.classList.add('pressed');act();});
   el.addEventListener('mouseup',()=>el.classList.remove('pressed'));
   el.addEventListener('mouseleave',()=>el.classList.remove('pressed'));
-  el.addEventListener('touchstart',e=>{e.preventDefault();el.classList.add('pressed');act();});
-  el.addEventListener('touchend',e=>{e.preventDefault();el.classList.remove('pressed');});
+  el.addEventListener('touchstart',e=>{e.preventDefault();el.classList.add('pressed');act();},{passive:false});
+  el.addEventListener('touchend',e=>{e.preventDefault();el.classList.remove('pressed');},{passive:false});
   el.addEventListener('touchcancel',()=>el.classList.remove('pressed'));
   return el;
 }
 function mkS(label,code,wM){
   const el=document.createElement('div');el.className='key sk';
-  el.style.flex='0 0 '+(wM*2.8)+'em';
-  el.innerHTML='<span class="label">'+label.replace('\n','<br>')+'</span>';
+  el.style.flex='0 0 '+(wM*100/14)+'%';
+  el.innerHTML='<span class="label">'+label+'</span>';
   keyElements[code]=el;
   function pr(e){e.preventDefault();el.classList.add('pressed');
-    if(code==='Backspace')doBackspace();else if(code==='Enter')doCarriageReturn();
+    if(code==='Backspace')doBackspace();else if(code==='Enter')doCR();
     else if(code==='Space')doSpace();else if(code==='Tab')doTab();
-    else if(code==='MarRel')doMarginRelease();
-    else if(code==='ShiftLock'){shiftLocked=!shiftLocked;updateSLV();}
-    else if(code==='ShiftLeft'||code==='ShiftRight'){shiftHeld=true;if(shiftLocked){shiftLocked=false;updateSLV();}}
+    else if(code==='MarRel')doMarRel();
+    else if(code==='ShiftLock'){shiftLocked=!shiftLocked;uSL();}
+    else if(code==='ShiftLeft'||code==='ShiftRight'){shiftHeld=true;if(shiftLocked){shiftLocked=false;uSL();}}
   }
   function rl(e){if(e)e.preventDefault();el.classList.remove('pressed');
     if(code==='ShiftLeft'||code==='ShiftRight')shiftHeld=false;}
   el.addEventListener('mousedown',pr);el.addEventListener('mouseup',rl);el.addEventListener('mouseleave',rl);
-  el.addEventListener('touchstart',pr);el.addEventListener('touchend',rl);el.addEventListener('touchcancel',rl);
+  el.addEventListener('touchstart',pr,{passive:false});el.addEventListener('touchend',rl,{passive:false});el.addEventListener('touchcancel',rl);
   return el;
 }
 function esc(s){return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
-
 // Roll buttons
-document.getElementById('roll-up').addEventListener('mousedown',e=>{e.preventDefault();doCursorUp();});
-document.getElementById('roll-up').addEventListener('touchstart',e=>{e.preventDefault();doCursorUp();});
-document.getElementById('roll-down').addEventListener('mousedown',e=>{e.preventDefault();doCursorDown();});
-document.getElementById('roll-down').addEventListener('touchstart',e=>{e.preventDefault();doCursorDown();});
+document.getElementById('roll-up').addEventListener('mousedown',e=>{e.preventDefault();doUp();});
+document.getElementById('roll-up').addEventListener('touchstart',e=>{e.preventDefault();doUp();},{passive:false});
+document.getElementById('roll-down').addEventListener('mousedown',e=>{e.preventDefault();doDown();});
+document.getElementById('roll-down').addEventListener('touchstart',e=>{e.preventDefault();doDown();},{passive:false});
 keyElements['ArrowUp']=document.getElementById('roll-up');
 keyElements['ArrowDown']=document.getElementById('roll-down');
-// === RULER ===
-// Ruler alignment: notch at position N is at pixel N*CELL_W from left edge of paper.
-// So notch 0 = pixel 0 = left edge. Notch 80 = pixel 2480 = right edge.
-// Notch 10 = pixel 310 = border between col 10 and col 11.
-// Extra: 4 notches left of 0, 4 notches right of 80.
-function drawRuler(container,scale){
+// === RULERS (drawn at display resolution) ===
+function drawRulers(){
+  drawRuler(document.getElementById('ruler-top'));
+  drawRuler(document.getElementById('ruler-bottom'));
+}
+function drawRuler(container){
   container.innerHTML='';
-  const cellPx=CELL_W*scale;
-  const totalCells=COLS+2*RULER_EXTRA; // 88
+  const cellPx=CELL_W*viewScale;
+  const extra=4;
+  const totalCells=COLS+2*extra;
   const totalW=Math.ceil(totalCells*cellPx);
   const h=RULER_H;
-  const cvs=document.createElement('canvas');
-  // Use 2x for retina clarity
   const dpr=window.devicePixelRatio||1;
+  const cvs=document.createElement('canvas');
   cvs.width=Math.ceil(totalW*dpr);cvs.height=Math.ceil(h*dpr);
   cvs.style.width=totalW+'px';cvs.style.height=h+'px';
   cvs.className='ruler-canvas';
-  const rc=cvs.getContext('2d');
-  rc.scale(dpr,dpr);
+  const rc=cvs.getContext('2d');rc.scale(dpr,dpr);
   rc.fillStyle='#111';rc.fillRect(0,0,totalW,h);
-
-  for(let i=-RULER_EXTRA;i<=COLS+RULER_EXTRA;i++){
-    // Notch at position i is at pixel (i+RULER_EXTRA)*cellPx in the ruler canvas
-    const cx=(i+RULER_EXTRA)*cellPx;
-    const posInTen=((i%10)+10)%10;
+  for(let i=-extra;i<=COLS+extra;i++){
+    const cx=(i+extra)*cellPx;
+    const grp=((i%10)+10)%10;
     const isMarg=(i===10||i===70);
     const isOut=(i<0||i>COLS);
-    // Notch size
     let nh=Math.max(3,h*0.16);
-    if(posInTen===0)nh=Math.max(8,h*0.45);
-    else if(posInTen===5)nh=Math.max(5,h*0.3);
-    const nw=Math.max(1.5,cellPx*0.07);
-    const col=isMarg?'#f44':(isOut?'#444':'#999');
-    rc.fillStyle=col;
+    if(grp===0)nh=Math.max(8,h*0.45);
+    else if(grp===5)nh=Math.max(5,h*0.3);
+    const nw=Math.max(1.5,cellPx*0.06);
+    rc.fillStyle=isMarg?'#f44':(isOut?'#444':'#888');
     rc.fillRect(cx-nw/2,h-nh,nw,nh);
-    // Labels: full number "0","10","20"..."80" SPLIT across notch
-    // Digit left of notch + notch + digit right of notch for 2-digit
-    // For "0": just center at notch
-    if(posInTen===0&&i>=0&&i<=COLS){
+    if(grp===0&&i>=0&&i<=COLS){
       const lbl=i.toString();
-      const fontSize=Math.max(7,cellPx*0.38);
-      rc.font='bold '+fontSize+'px sans-serif';
+      const fs=Math.max(7,Math.min(cellPx*0.38,14));
+      rc.font='bold '+fs+'px sans-serif';
       rc.fillStyle=isMarg?'#f44':'#ddd';
       if(lbl.length===1){
-        // Single digit: center on notch
         rc.textAlign='center';rc.textBaseline='bottom';
-        rc.fillText(lbl,cx,h-nh+fontSize*0.85);
+        rc.fillText(lbl,cx,h-nh+fs*0.85);
       }else{
-        // Two digits: split across notch. First digit left, second right.
         rc.textAlign='right';rc.textBaseline='bottom';
-        rc.fillText(lbl[0],cx-nw/2-1,h-nh+fontSize*0.85);
+        rc.fillText(lbl[0],cx-nw/2-1,h-nh+fs*0.85);
         rc.textAlign='left';
-        rc.fillText(lbl[1],cx+nw/2+1,h-nh+fontSize*0.85);
+        rc.fillText(lbl[1],cx+nw/2+1,h-nh+fs*0.85);
       }
     }
   }
-  // Position: paper left edge corresponds to ruler position 0
-  // Ruler position 0 is at offset RULER_EXTRA*cellPx from left of ruler canvas
-  // Paper absolute left = ROLL_W + paperLeft (paperLeft is margin inside viewport)
-  const paperLeft=parseFloat(paperWrap.style.marginLeft)||0;
-  const paperAbsLeft=ROLL_W*1+paperLeft; // roll buttons offset
-  const rulerOffset=paperAbsLeft-RULER_EXTRA*cellPx;
+  // Position: ruler notch 0 must align with paper left edge on screen.
+  // Paper left on screen = ROLL_W + viewX (paperInner is at viewX in viewport)
+  // Ruler notch 0 in ruler canvas = extra*cellPx from left
+  const paperScreenLeft=ROLL_W+viewX;
+  const rulerOffset=paperScreenLeft-extra*cellPx;
   cvs.style.left=Math.round(rulerOffset)+'px';
   container.appendChild(cvs);
+}
+// === ZOOM & PAN ===
+// Mouse wheel zoom (only on paper area)
+viewport.addEventListener('wheel',e=>{
+  e.preventDefault();
+  const rect=viewport.getBoundingClientRect();
+  const mx=e.clientX-rect.left,my=e.clientY-rect.top;
+  const factor=e.deltaY<0?1.1:0.9;
+  zoomAt(mx,my,factor);
+},{passive:false});
+
+// Pinch zoom (touch)
+let pinchDist=0,pinchScale=1;
+let touches=[];
+viewport.addEventListener('touchstart',e=>{
+  touches=Array.from(e.touches);
+  if(touches.length===2){
+    pinchDist=Math.hypot(touches[1].clientX-touches[0].clientX,touches[1].clientY-touches[0].clientY);
+    pinchScale=viewScale;
+  }
+},{passive:false});
+viewport.addEventListener('touchmove',e=>{
+  e.preventDefault();
+  const ts=Array.from(e.touches);
+  if(ts.length===2){
+    const d=Math.hypot(ts[1].clientX-ts[0].clientX,ts[1].clientY-ts[0].clientY);
+    const rect=viewport.getBoundingClientRect();
+    const cx=(ts[0].clientX+ts[1].clientX)/2-rect.left;
+    const cy=(ts[0].clientY+ts[1].clientY)/2-rect.top;
+    const newScale=pinchScale*(d/pinchDist);
+    const factor=newScale/viewScale;
+    zoomAt(cx,cy,factor);
+  }else if(ts.length===1&&touches.length===1){
+    // Pan
+    const dx=ts[0].clientX-touches[0].clientX;
+    const dy=ts[0].clientY-touches[0].clientY;
+    viewX+=dx;viewY+=dy;
+    clampView();applyView();
+  }
+  touches=ts;
+},{passive:false});
+
+// Mouse drag pan
+let dragging=false,dragX=0,dragY=0;
+viewport.addEventListener('mousedown',e=>{
+  if(e.button===0){dragging=true;dragX=e.clientX;dragY=e.clientY;viewport.classList.add('dragging');}
+});
+window.addEventListener('mousemove',e=>{
+  if(!dragging)return;
+  viewX+=e.clientX-dragX;viewY+=e.clientY-dragY;
+  dragX=e.clientX;dragY=e.clientY;
+  clampView();applyView();
+});
+window.addEventListener('mouseup',()=>{dragging=false;viewport.classList.remove('dragging');});
+
+function zoomAt(px,py,factor){
+  const newScale=Math.max(baseScale*0.5,Math.min(baseScale*4,viewScale*factor));
+  // Zoom centered on (px,py) in viewport
+  viewX=px-(px-viewX)*(newScale/viewScale);
+  viewY=py-(py-viewY)*(newScale/viewScale);
+  viewScale=newScale;
+  clampView();applyView();
+}
+
+function clampView(){
+  const vpW=viewport.clientWidth,vpH=viewport.clientHeight;
+  const pw=CANVAS_W*viewScale,ph=CANVAS_H*viewScale;
+  // Allow some overshoot but keep at least some paper visible
+  const margin=50;
+  if(viewX>margin)viewX=margin;
+  if(viewX<vpW-pw-margin)viewX=vpW-pw-margin;
+  if(viewY>margin)viewY=margin;
+  if(viewY<vpH-ph-margin)viewY=vpH-ph-margin;
 }
 // === LAYOUT ===
 function layout(){
   const appW=window.innerWidth,appH=window.innerHeight;
-  const kbH=Math.max(140,Math.floor(appH*0.32));
-  const npH=42;
+  const kbH=Math.max(160,Math.floor(appH*0.35));
+  const npH=48;
   const caH=appH-kbH-npH;
   document.getElementById('canvas-area').style.height=caH+'px';
   document.getElementById('keyboard-area').style.height=kbH+'px';
   document.getElementById('nameplate').style.height=npH+'px';
 
-  const rollW=ROLL_W;
-  const scrollW=12;
-  const availW=appW-rollW-scrollW-40;
-  const scale=Math.min(availW/CANVAS_W,1);
-  currentScale=scale;
-  const spW=CANVAS_W*scale;
-  const spH=CANVAS_H*scale;
-
-  paperContainer.style.width=CANVAS_W+'px';
-  paperContainer.style.height=CANVAS_H+'px';
-  paperContainer.style.transform='scale('+scale+')';
-  paperContainer.style.transformOrigin='top left';
-
-  paperWrap.style.width=spW+'px';
-  paperWrap.style.height=(spH+2*PAPER_PAD)+'px';
-  padTop.style.height=PAPER_PAD+'px';
-  padBottom.style.height=PAPER_PAD+'px';
-
+  const vpW=appW-ROLL_W;
   const vpH=caH-2*RULER_H;
   viewport.style.height=vpH+'px';
 
-  const vpAvailW=appW-rollW-scrollW;
-  const paperLeft=Math.max(10,Math.round((vpAvailW-spW)/2));
-  paperWrap.style.marginLeft=paperLeft+'px';
+  // Base scale: fit paper width with some padding
+  baseScale=Math.min((vpW-20)/CANVAS_W,1);
+  if(viewScale<baseScale*0.5)viewScale=baseScale;
+  if(viewScale===1||viewScale<baseScale)viewScale=baseScale;
 
-  drawRuler(document.getElementById('ruler-top'),scale);
-  drawRuler(document.getElementById('ruler-bottom'),scale);
-
-  const kbInner=keyboardArea.querySelector('.keyboard');
-  if(kbInner)kbInner.style.maxWidth=Math.min(spW+60,appW-20)+'px';
+  // Center paper initially
+  const pw=CANVAS_W*viewScale;
+  viewX=Math.round((vpW-pw)/2);
+  viewY=10;
+  applyView();
 }
 
 function init(){buildKB();layout();updateCursor();
@@ -450,60 +465,52 @@ init();
 })();
 </script>
 <style>
-/* Roll buttons */
-#roll-buttons{width:36px;display:flex;flex-direction:column;align-items:center;
-justify-content:space-between;padding:20px 0;background:#222;flex-shrink:0}
-#roll-buttons button{width:28px;height:28px;border:1px solid #555;background:#333;
-color:#aaa;font-size:13px;cursor:pointer;border-radius:4px;display:flex;
-align-items:center;justify-content:center;-webkit-tap-highlight-color:transparent;outline:none}
-#roll-buttons button:active,#roll-buttons button.pressed{background:#666;color:#fff}
 /* Nameplate */
 #nameplate{background:#3d3d3d;display:flex;align-items:center;justify-content:center;
-border-top:1px solid #555;border-bottom:1px solid #222;flex-shrink:0;padding:6px 0}
+border-top:1px solid #555;border-bottom:1px solid #222;flex-shrink:0;padding:10px 0}
 .np-plate{display:inline-flex;align-items:center;gap:8px;
 background:linear-gradient(to bottom,#4a4a4a,#2a2a2a);
-padding:6px 20px;border-radius:14px;border:1px solid #555;position:relative}
+padding:6px 22px;border-radius:14px;border:1px solid #555}
 .np-text{font-family:Georgia,serif;font-style:italic;font-size:14px;
 color:#c0b090;letter-spacing:3px;text-shadow:1px 1px 2px rgba(0,0,0,0.5)}
 .np-screw{display:inline-block;width:10px;height:10px;border-radius:50%;
 background:radial-gradient(circle at 3px 3px,#aaa,#444);
-border:1px solid #333;box-shadow:inset 0 1px 2px rgba(255,255,255,0.2),0 1px 2px rgba(0,0,0,0.4);
-position:relative;overflow:hidden}
+border:1px solid #333;box-shadow:inset 0 1px 2px rgba(255,255,255,0.2);overflow:hidden;position:relative}
 .np-screw::after{content:'';position:absolute;top:50%;left:50%;width:6px;height:1.5px;
 background:#222;border-radius:1px;transform:translate(-50%,-50%)}
-/* Keyboard */
+/* Keyboard - fills width on mobile */
 #keyboard-area{background:#5ab4ac;display:flex;align-items:center;
-justify-content:center;padding:5px;flex-shrink:0;border-top:3px solid #3d8c85}
-.keyboard{display:flex;flex-direction:column;gap:3px;align-items:center;width:100%}
+justify-content:center;padding:4px 2px;flex-shrink:0;border-top:3px solid #3d8c85}
+.keyboard{display:flex;flex-direction:column;gap:2px;align-items:center;width:100%;max-width:700px}
 .kb-row{display:flex;gap:2px;justify-content:center;width:100%}
-.key{height:2.3em;min-width:2.3em;border-radius:50%;background:#f5f0e8;
+.key{height:36px;min-width:0;border-radius:50%;background:#f5f0e8;
 border:2px solid #999;display:flex;flex-direction:column;align-items:center;
-justify-content:center;cursor:pointer;font-size:10px;
+justify-content:center;cursor:pointer;font-size:12px;
 font-family:'Courier New',monospace;font-weight:bold;color:#222;
-box-shadow:1px 2px 3px rgba(0,0,0,0.3);transition:background .05s,transform .05s;
-flex:0 0 2.3em;-webkit-tap-highlight-color:transparent}
-.key .ku{font-size:7px;color:#555;line-height:1}
-.key .kl{font-size:11px;line-height:1}
-.key.pressed,.key:active{background:#333;color:#fff;transform:translateY(2px);box-shadow:0 0 2px rgba(0,0,0,.5)}
+box-shadow:1px 1px 2px rgba(0,0,0,0.3);transition:background .05s,transform .05s;
+flex:1 1 0;-webkit-tap-highlight-color:transparent;overflow:hidden}
+.key .ku{font-size:8px;color:#555;line-height:1}
+.key .kl{font-size:13px;line-height:1}
+.key.pressed,.key:active{background:#333;color:#fff;transform:translateY(1px);box-shadow:none}
 .key.pressed .ku,.key.pressed .kl{color:#fff}
 .key.locked{background:#ff6;border-color:#cc0}
-.key.mar-active{background:#fcc;border-color:#f44;animation:pulse-mar .4s ease}
+.key.mar-active{background:#fcc;border-color:#f44}
 .key.mar-active .label{color:#c00}
-@keyframes pulse-mar{0%{transform:scale(1)}50%{transform:scale(1.05)}100%{transform:scale(1)}}
-.sk{border-radius:5px;font-size:8px;min-width:2.6em}
-.sk .label{text-align:center;line-height:1.1}
-@media(max-width:768px){
-.key{height:2em;min-width:2em;flex:0 0 2em;font-size:8px}
-.key .ku{font-size:6px}.key .kl{font-size:9px}
-.sk{font-size:6px}.kb-row{gap:1px}.keyboard{gap:2px}
-#keyboard-area{padding:3px}
+.sk{border-radius:5px;font-size:9px}
+.sk .label{text-align:center;line-height:1.1;white-space:nowrap}
+/* Make keyboard bigger on small screens */
+@media(max-width:600px){
+  .keyboard{max-width:100%}
+  .key{height:32px;font-size:11px}
+  .key .ku{font-size:7px}.key .kl{font-size:12px}
+  .sk{font-size:8px}
+  .kb-row{gap:1px}
+  #keyboard-area{padding:3px 1px}
 }
-@media(max-width:480px){
-.key{height:1.5em;min-width:1.5em;flex:0 0 1.5em;font-size:6px}
-.key .ku{font-size:5px}.key .kl{font-size:7px}
-.sk{font-size:5px}
-#roll-buttons{width:26px;padding:10px 0}
-#roll-buttons button{width:22px;height:22px;font-size:10px}
+@media(max-width:400px){
+  .key{height:28px;font-size:10px}
+  .key .ku{font-size:6px}.key .kl{font-size:10px}
+  .sk{font-size:7px}
 }
 </style>
 </body>
