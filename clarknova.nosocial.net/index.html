@@ -70,6 +70,7 @@ const RULER_H=28,ROLL_W=28;
 
 let cursorCol=INITIAL_COL,cursorRow=INITIAL_ROW;
 let shiftLocked=false,shiftHeld=false,marginReleased=false;
+let shiftJustLocked=false;
 let audioCtx=null;
 let fontsReady=false;
 
@@ -251,11 +252,16 @@ function doDown(){if(cursorRow<ROWS){cursorRow++;playRoll();updateCursor();panTo
 // - Shift Lock engage: play SOUND_SHIFT
 function handleKeyDown(e){
   if(e.repeat)return;const c=e.code;
+  // Left Ctrl while shift held = Shift Lock
+  if(c==='ControlLeft'&&shiftHeld){
+    shiftLocked=true;uSL();playClick();
+    shiftJustLocked=true;
+    e.preventDefault();return;
+  }
   if(c==='ShiftLeft'||c==='ShiftRight'){
     if(shiftHeld)return;
-    shiftHeld=true;
+    shiftHeld=true;shiftJustLocked=false;
     if(!shiftLocked)playClick(); // normal shift down sound
-    // If locked: no sound on down, will release+sound on up
     hlK(c,1);e.preventDefault();return;
   }
   if(c==='Enter'){doCR();hlK('Enter',1);e.preventDefault();return;}
@@ -271,6 +277,7 @@ function handleKeyDown(e){
 function handleKeyUp(e){const c=e.code;
   if(c==='ShiftLeft'||c==='ShiftRight'){
     shiftHeld=false;
+    if(shiftJustLocked){shiftJustLocked=false;hlK(c,0);return;}
     if(shiftLocked){shiftLocked=false;uSL();}
     playShiftRelease();
     hlK(c,0);return;
