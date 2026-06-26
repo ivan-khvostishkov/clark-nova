@@ -100,26 +100,22 @@ const SOUND_BACKSPACE = 'audio/COMType_Typewriter%20Backspace%2081%20DPA4060_PMS
 const SOUND_CR = 'audio/COMType_Typewriter%20Carriage%20Return%20Movement%20105%20DPA4060_PMSFX_CWT.wav';
 const SOUND_BELL = 'audio/COMType_Typewriter%20Bell%20223%20DPA4060_PMSFX_CWT.wav';
 const SOUND_SHIFT = 'audio/COMType_Typewriter%20Shit%20Press%20Release%2036%20DPA4060_PMSFX_CWT.wav';
+const SOUND_SHIFT_RELEASE = 'audio/COMType_Typewriter%20Shit%20Press%20Release%2037%20DPA4060_PMSFX_CWT.wav';
 const SOUND_ROLL = 'audio/COMType_Typewritter%20Roller%20Knob%20Movement%20208%20DPA4060_PMSFX_CWT.wav';
 const SOUND_LEVER = 'audio/COMType_Typewritter%20Lever%20182%20DPA4060_PMSFX_CWT.wav';
-// Preload sounds
+// Preload sounds immediately
+let firstInteraction=true;
 function preloadAudio(){
-  [SOUND_STRIKE,SOUND_SPACE,SOUND_BACKSPACE,SOUND_CR,SOUND_BELL,SOUND_SHIFT,SOUND_ROLL,SOUND_LEVER].forEach(path=>{
+  [SOUND_STRIKE,SOUND_SPACE,SOUND_BACKSPACE,SOUND_CR,SOUND_BELL,SOUND_SHIFT,SOUND_SHIFT_RELEASE,SOUND_ROLL,SOUND_LEVER].forEach(path=>{
     const a=new Audio(path);a.preload='auto';a.load();
   });
 }
-// Unlock audio on first user interaction (required on iOS)
-let audioUnlocked=false;
-function unlockAudio(){
-  if(audioUnlocked)return;
-  const a=new Audio();a.play().catch(()=>{});
-  audioUnlocked=true;
-}
-document.addEventListener('touchstart',unlockAudio,{once:true});
-document.addEventListener('mousedown',unlockAudio,{once:true});
-document.addEventListener('keydown',unlockAudio,{once:true});
+preloadAudio(); // Start loading immediately
 function playSound(path){
-  try{const a=new Audio(path);a.volume=1.0;a.play().catch(()=>{});}catch(e){}
+  try{
+    const a=new Audio(path);a.volume=1.0;
+    a.play().catch(()=>{});
+  }catch(e){}
 }
 function playKeystroke(){playSound(SOUND_STRIKE);}
 function playBell(){playSound(SOUND_BELL);}
@@ -127,6 +123,7 @@ function playCR(){playSound(SOUND_CR);}
 function playSlide(){playSound(SOUND_SPACE);}
 function playRoll(){playSound(SOUND_ROLL);}
 function playClick(){playSound(SOUND_SHIFT);}
+function playShiftRelease(){playSound(SOUND_SHIFT_RELEASE);}
 function playMarRel(){playSound(SOUND_LEVER);}
 // === CHARACTER MAP ===
 const keyRows=[
@@ -247,9 +244,20 @@ function doUp(){if(cursorRow>1){cursorRow--;playRoll();updateCursor();panToCurso
 function doDown(){if(cursorRow<ROWS){cursorRow++;playRoll();updateCursor();panToCursor();}}
 
 // === KEYBOARD INPUT ===
+// Shift sound rules:
+// - Shift DOWN (normal, no lock): play SOUND_SHIFT
+// - Shift DOWN (while locked): NO sound (lock releases on UP)
+// - Shift UP (always): play SOUND_SHIFT_RELEASE, also disengage lock if locked
+// - Shift Lock engage: play SOUND_SHIFT
 function handleKeyDown(e){
   if(e.repeat)return;const c=e.code;
-  if(c==='ShiftLeft'||c==='ShiftRight'){shiftHeld=true;playClick();if(shiftLocked){shiftLocked=false;uSL();}hlK(c,1);e.preventDefault();return;}
+  if(c==='ShiftLeft'||c==='ShiftRight'){
+    if(shiftHeld)return;
+    shiftHeld=true;
+    if(!shiftLocked)playClick(); // normal shift down sound
+    // If locked: no sound on down, will release+sound on up
+    hlK(c,1);e.preventDefault();return;
+  }
   if(c==='Enter'){doCR();hlK('Enter',1);e.preventDefault();return;}
   if(c==='Backspace'){doBackspace();hlK('Backspace',1);e.preventDefault();return;}
   if(c==='Tab'){doTab();hlK('Tab',1);e.preventDefault();return;}
@@ -261,7 +269,14 @@ function handleKeyDown(e){
   if(kd){typeCharacter(isShifted()?kd.u:kd.l);hlK(c,1);e.preventDefault();}
 }
 function handleKeyUp(e){const c=e.code;
-  if(c==='ShiftLeft'||c==='ShiftRight'){shiftHeld=false;hlK(c,0);return;}hlK(c,0);}
+  if(c==='ShiftLeft'||c==='ShiftRight'){
+    shiftHeld=false;
+    if(shiftLocked){shiftLocked=false;uSL();}
+    playShiftRelease();
+    hlK(c,0);return;
+  }
+  hlK(c,0);
+}
 document.addEventListener('keydown',handleKeyDown);
 document.addEventListener('keyup',handleKeyUp);
 // === SCHEMATIC KEYBOARD ===
@@ -324,10 +339,22 @@ function mkS(label,code,wM){
     else if(code==='Space')doSpace();else if(code==='Tab')doTab();
     else if(code==='MarRel')doMarRel();
     else if(code==='ShiftLock'){shiftLocked=true;uSL();playClick();}
-    else if(code==='ShiftLeft'||code==='ShiftRight'){shiftHeld=true;playClick();hlK(code,1);if(shiftLocked){shiftLocked=false;uSL();}}
+    else if(code==='ShiftLeft'||code==='ShiftRight'){
+      if(shiftHeld)return;
+      shiftHeld=true;
+      if(!shiftLocked)playClick();
+      hlK(code,1);
+    }
   }
   function rl(e){if(e)e.preventDefault();el.classList.remove('pressed');
-    if(code==='ShiftLeft'||code==='ShiftRight'){shiftHeld=false;hlK(code,0);}}
+    if(code==='ShiftLeft'||code==='ShiftRight'){
+      if(!shiftHeld)return; // already released
+      shiftHeld=false;
+      if(shiftLocked){shiftLocked=false;uSL();}
+      playShiftRelease();
+      hlK(code,0);
+    }
+  }
   el.addEventListener('mousedown',pr);el.addEventListener('mouseup',rl);el.addEventListener('mouseleave',rl);
   el.addEventListener('touchstart',pr,{passive:false});el.addEventListener('touchend',rl,{passive:false});el.addEventListener('touchcancel',rl);
   return el;
