@@ -93,44 +93,41 @@ wm.forEach(([x,y])=>{ctx.fillText('Clark Nova',x,y);ctx.fillText('by NoSocial.Ne
 ctx.textAlign='start';ctx.textBaseline='alphabetic';
 
 // === AUDIO (using real typewriter samples from audio/ directory) ===
-function getAC(){if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();return audioCtx;}
-const audioBuffers={};
 const audioPaths={
-  strike:Array.from({length:20},(_,i)=>'audio/COMType_Typewriter Single Strike '+(i+1)+' DPA4060_PMSFX_CWT.wav'),
-  space:Array.from({length:18},(_,i)=>'audio/COMType_Typewriter Space Spacebar '+(63+i)+' DPA4060_PMSFX_CWT.wav'),
-  backspace:Array.from({length:11},(_,i)=>'audio/COMType_Typewriter Backspace '+(81+i)+' DPA4060_PMSFX_CWT.wav'),
-  cr:Array.from({length:34},(_,i)=>'audio/COMType_Typewriter Carriage Return Movement '+(92+i)+' DPA4060_PMSFX_CWT.wav'),
-  bell:Array.from({length:5},(_,i)=>'audio/COMType_Typewriter Bell '+(223+i)+' DPA4060_PMSFX_CWT.wav'),
-  shift:Array.from({length:27},(_,i)=>'audio/COMType_Typewriter Shit Press Release '+(36+i)+' DPA4060_PMSFX_CWT.wav'),
-  roll:Array.from({length:15},(_,i)=>'audio/COMType_Typewritter Roller Knob Movement '+(208+i)+' DPA4060_PMSFX_CWT.wav'),
-  lever:Array.from({length:26},(_,i)=>'audio/COMType_Typewritter Lever '+(182+i)+' DPA4060_PMSFX_CWT.wav')
+  strike:Array.from({length:20},(_,i)=>'audio/COMType_Typewriter%20Single%20Strike%20'+(i+1)+'%20DPA4060_PMSFX_CWT.wav'),
+  space:Array.from({length:18},(_,i)=>'audio/COMType_Typewriter%20Space%20Spacebar%20'+(63+i)+'%20DPA4060_PMSFX_CWT.wav'),
+  backspace:Array.from({length:11},(_,i)=>'audio/COMType_Typewriter%20Backspace%20'+(81+i)+'%20DPA4060_PMSFX_CWT.wav'),
+  cr:Array.from({length:34},(_,i)=>'audio/COMType_Typewriter%20Carriage%20Return%20Movement%20'+(92+i)+'%20DPA4060_PMSFX_CWT.wav'),
+  bell:Array.from({length:5},(_,i)=>'audio/COMType_Typewriter%20Bell%20'+(223+i)+'%20DPA4060_PMSFX_CWT.wav'),
+  shift:Array.from({length:27},(_,i)=>'audio/COMType_Typewriter%20Shit%20Press%20Release%20'+(36+i)+'%20DPA4060_PMSFX_CWT.wav'),
+  roll:Array.from({length:15},(_,i)=>'audio/COMType_Typewritter%20Roller%20Knob%20Movement%20'+(208+i)+'%20DPA4060_PMSFX_CWT.wav'),
+  lever:Array.from({length:26},(_,i)=>'audio/COMType_Typewritter%20Lever%20'+(182+i)+'%20DPA4060_PMSFX_CWT.wav')
 };
 // Preload a few of each category
 function preloadAudio(){
-  const ac=getAC();
   Object.values(audioPaths).forEach(arr=>{
-    // Preload first 3 of each
-    arr.slice(0,3).forEach(path=>{
-      fetch(path).then(r=>r.arrayBuffer()).then(ab=>ac.decodeAudioData(ab)).then(buf=>{audioBuffers[path]=buf;}).catch(()=>{});
+    arr.slice(0,2).forEach(path=>{
+      const a=new Audio(path);a.preload='auto';a.load();
     });
   });
 }
+// Unlock audio on first user interaction (required on iOS)
+let audioUnlocked=false;
+function unlockAudio(){
+  if(audioUnlocked)return;
+  const a=new Audio();a.play().catch(()=>{});
+  audioUnlocked=true;
+}
+document.addEventListener('touchstart',unlockAudio,{once:true});
+document.addEventListener('mousedown',unlockAudio,{once:true});
+document.addEventListener('keydown',unlockAudio,{once:true});
 function playFromPool(pool){
   try{
-    const ac=getAC();
     const paths=audioPaths[pool];
     const path=paths[Math.floor(Math.random()*paths.length)];
-    if(audioBuffers[path]){
-      const src=ac.createBufferSource();src.buffer=audioBuffers[path];
-      src.connect(ac.destination);src.start();
-    } else {
-      // Load on demand
-      fetch(path).then(r=>r.arrayBuffer()).then(ab=>ac.decodeAudioData(ab)).then(buf=>{
-        audioBuffers[path]=buf;
-        const src=ac.createBufferSource();src.buffer=buf;
-        src.connect(ac.destination);src.start();
-      }).catch(()=>{});
-    }
+    const audio=new Audio(path);
+    audio.volume=1.0;
+    audio.play().catch(()=>{});
   }catch(e){}
 }
 function playKeystroke(){playFromPool('strike');}
