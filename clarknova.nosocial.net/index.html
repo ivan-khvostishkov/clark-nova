@@ -93,22 +93,19 @@ wm.forEach(([x,y])=>{ctx.fillText('Clark Nova',x,y);ctx.fillText('by NoSocial.Ne
 ctx.textAlign='start';ctx.textBaseline='alphabetic';
 
 // === AUDIO (using real typewriter samples from audio/ directory) ===
-const audioPaths={
-  strike:Array.from({length:20},(_,i)=>'audio/COMType_Typewriter%20Single%20Strike%20'+(i+1)+'%20DPA4060_PMSFX_CWT.wav'),
-  space:Array.from({length:18},(_,i)=>'audio/COMType_Typewriter%20Space%20Spacebar%20'+(63+i)+'%20DPA4060_PMSFX_CWT.wav'),
-  backspace:Array.from({length:11},(_,i)=>'audio/COMType_Typewriter%20Backspace%20'+(81+i)+'%20DPA4060_PMSFX_CWT.wav'),
-  cr:Array.from({length:34},(_,i)=>'audio/COMType_Typewriter%20Carriage%20Return%20Movement%20'+(92+i)+'%20DPA4060_PMSFX_CWT.wav'),
-  bell:Array.from({length:5},(_,i)=>'audio/COMType_Typewriter%20Bell%20'+(223+i)+'%20DPA4060_PMSFX_CWT.wav'),
-  shift:Array.from({length:27},(_,i)=>'audio/COMType_Typewriter%20Shit%20Press%20Release%20'+(36+i)+'%20DPA4060_PMSFX_CWT.wav'),
-  roll:Array.from({length:15},(_,i)=>'audio/COMType_Typewritter%20Roller%20Knob%20Movement%20'+(208+i)+'%20DPA4060_PMSFX_CWT.wav'),
-  lever:Array.from({length:26},(_,i)=>'audio/COMType_Typewritter%20Lever%20'+(182+i)+'%20DPA4060_PMSFX_CWT.wav')
-};
-// Preload a few of each category
+// Edit these constants to select your preferred sound files:
+const SOUND_STRIKE = 'audio/COMType_Typewriter%20Single%20Strike%201%20DPA4060_PMSFX_CWT.wav';
+const SOUND_SPACE = 'audio/COMType_Typewriter%20Space%20Spacebar%2063%20DPA4060_PMSFX_CWT.wav';
+const SOUND_BACKSPACE = 'audio/COMType_Typewriter%20Backspace%2081%20DPA4060_PMSFX_CWT.wav';
+const SOUND_CR = 'audio/COMType_Typewriter%20Carriage%20Return%20Movement%2092%20DPA4060_PMSFX_CWT.wav';
+const SOUND_BELL = 'audio/COMType_Typewriter%20Bell%20223%20DPA4060_PMSFX_CWT.wav';
+const SOUND_SHIFT = 'audio/COMType_Typewriter%20Shit%20Press%20Release%2036%20DPA4060_PMSFX_CWT.wav';
+const SOUND_ROLL = 'audio/COMType_Typewritter%20Roller%20Knob%20Movement%20208%20DPA4060_PMSFX_CWT.wav';
+const SOUND_LEVER = 'audio/COMType_Typewritter%20Lever%20182%20DPA4060_PMSFX_CWT.wav';
+// Preload sounds
 function preloadAudio(){
-  Object.values(audioPaths).forEach(arr=>{
-    arr.slice(0,2).forEach(path=>{
-      const a=new Audio(path);a.preload='auto';a.load();
-    });
+  [SOUND_STRIKE,SOUND_SPACE,SOUND_BACKSPACE,SOUND_CR,SOUND_BELL,SOUND_SHIFT,SOUND_ROLL,SOUND_LEVER].forEach(path=>{
+    const a=new Audio(path);a.preload='auto';a.load();
   });
 }
 // Unlock audio on first user interaction (required on iOS)
@@ -121,22 +118,16 @@ function unlockAudio(){
 document.addEventListener('touchstart',unlockAudio,{once:true});
 document.addEventListener('mousedown',unlockAudio,{once:true});
 document.addEventListener('keydown',unlockAudio,{once:true});
-function playFromPool(pool){
-  try{
-    const paths=audioPaths[pool];
-    const path=paths[Math.floor(Math.random()*paths.length)];
-    const audio=new Audio(path);
-    audio.volume=1.0;
-    audio.play().catch(()=>{});
-  }catch(e){}
+function playSound(path){
+  try{const a=new Audio(path);a.volume=1.0;a.play().catch(()=>{});}catch(e){}
 }
-function playKeystroke(){playFromPool('strike');}
-function playBell(){playFromPool('bell');}
-function playCR(){playFromPool('cr');}
-function playSlide(){playFromPool('space');}
-function playRoll(){playFromPool('roll');}
-function playClick(){playFromPool('shift');}
-function playMarRel(){playFromPool('lever');}
+function playKeystroke(){playSound(SOUND_STRIKE);}
+function playBell(){playSound(SOUND_BELL);}
+function playCR(){playSound(SOUND_CR);}
+function playSlide(){playSound(SOUND_SPACE);}
+function playRoll(){playSound(SOUND_ROLL);}
+function playClick(){playSound(SOUND_SHIFT);}
+function playMarRel(){playSound(SOUND_LEVER);}
 // === CHARACTER MAP ===
 const keyRows=[
 [{l:'1',u:'!',c:'Digit1'},{l:'2',u:'"',c:'Digit2'},{l:'3',u:'#',c:'Digit3'},
@@ -243,7 +234,7 @@ function doTab(){
   if(t>RIGHT_MARGIN&&!marginReleased)t=RIGHT_MARGIN+1;
   cursorCol=t;checkBell(oc,cursorCol);updateCursor();panToCursor();
 }
-function doBackspace(){if(cursorCol>1){cursorCol--;playFromPool('backspace');updateCursor();panToCursor();}}
+function doBackspace(){if(cursorCol>1){cursorCol--;playSound(SOUND_BACKSPACE);updateCursor();panToCursor();}}
 function doCR(){
   if(cursorRow>=ROWS)return;
   cursorRow++;cursorCol=INITIAL_COL;marginReleased=false;
