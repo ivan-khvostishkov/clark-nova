@@ -92,88 +92,54 @@ ctx.fillStyle='rgba(254,254,254,1)';ctx.textAlign='center';ctx.textBaseline='mid
 wm.forEach(([x,y])=>{ctx.fillText('Clark Nova',x,y);ctx.fillText('by NoSocial.Net',x,y+56);});
 ctx.textAlign='start';ctx.textBaseline='alphabetic';
 
-// === AUDIO ===
+// === AUDIO (using real typewriter samples from audio/ directory) ===
 function getAC(){if(!audioCtx)audioCtx=new(window.AudioContext||window.webkitAudioContext)();return audioCtx;}
-// Hammer strike (printable chars only)
-function playKeystroke(){
-  try{const ac=getAC(),t=ac.currentTime,sr=ac.sampleRate;
-  const buf=ac.createBuffer(1,Math.floor(sr*0.035),sr);const d=buf.getChannelData(0);
-  for(let i=0;i<d.length;i++){const env=Math.exp(-i/(sr*0.006));
-    d[i]=env*(Math.random()*2-1)*0.5+env*0.25*Math.sin(i*2*Math.PI*4500/sr);}
-  const src=ac.createBufferSource();src.buffer=buf;src.connect(ac.destination);src.start(t);}catch(e){}
+const audioBuffers={};
+const audioPaths={
+  strike:Array.from({length:20},(_,i)=>'audio/COMType_Typewriter Single Strike '+(i+1)+' DPA4060_PMSFX_CWT.wav'),
+  space:Array.from({length:18},(_,i)=>'audio/COMType_Typewriter Space Spacebar '+(63+i)+' DPA4060_PMSFX_CWT.wav'),
+  backspace:Array.from({length:11},(_,i)=>'audio/COMType_Typewriter Backspace '+(81+i)+' DPA4060_PMSFX_CWT.wav'),
+  cr:Array.from({length:34},(_,i)=>'audio/COMType_Typewriter Carriage Return Movement '+(92+i)+' DPA4060_PMSFX_CWT.wav'),
+  bell:Array.from({length:5},(_,i)=>'audio/COMType_Typewriter Bell '+(223+i)+' DPA4060_PMSFX_CWT.wav'),
+  shift:Array.from({length:27},(_,i)=>'audio/COMType_Typewriter Shit Press Release '+(36+i)+' DPA4060_PMSFX_CWT.wav'),
+  roll:Array.from({length:15},(_,i)=>'audio/COMType_Typewritter Roller Knob Movement '+(208+i)+' DPA4060_PMSFX_CWT.wav'),
+  lever:Array.from({length:26},(_,i)=>'audio/COMType_Typewritter Lever '+(182+i)+' DPA4060_PMSFX_CWT.wav')
+};
+// Preload a few of each category
+function preloadAudio(){
+  const ac=getAC();
+  Object.values(audioPaths).forEach(arr=>{
+    // Preload first 3 of each
+    arr.slice(0,3).forEach(path=>{
+      fetch(path).then(r=>r.arrayBuffer()).then(ab=>ac.decodeAudioData(ab)).then(buf=>{audioBuffers[path]=buf;}).catch(()=>{});
+    });
+  });
 }
-function playBell(){
-  try{const ac=getAC(),t=ac.currentTime;
-  const osc=ac.createOscillator(),g=ac.createGain();
-  osc.type='sine';osc.frequency.setValueAtTime(2400,t);
-  g.gain.setValueAtTime(0.3,t);g.gain.exponentialRampToValueAtTime(0.001,t+0.6);
-  osc.connect(g);g.connect(ac.destination);osc.start(t);osc.stop(t+0.6);}catch(e){}
-}
-// CR: быстрые щелчки каретки + финальный клик
-function playCR(){
-  try{const ac=getAC(),t=ac.currentTime,sr=ac.sampleRate;
-  const len=0.55;
-  const buf=ac.createBuffer(1,Math.floor(sr*len),sr);const d=buf.getChannelData(0);
-  const totalClicks=20;
-  for(let c=0;c<totalClicks;c++){
-    const clickPos=c/totalClicks;
-    const clickTime=clickPos*clickPos*0.48;
-    const clickSample=Math.floor(clickTime*sr);
-    const clickDur=Math.floor(sr*0.002);
-    const vol=0.5+clickPos*0.3;
-    for(let j=0;j<clickDur&&clickSample+j<d.length;j++){
-      const env=Math.exp(-j/(sr*0.0005));
-      d[clickSample+j]+=env*vol*Math.sin(j*2*Math.PI*3000/sr);
+function playFromPool(pool){
+  try{
+    const ac=getAC();
+    const paths=audioPaths[pool];
+    const path=paths[Math.floor(Math.random()*paths.length)];
+    if(audioBuffers[path]){
+      const src=ac.createBufferSource();src.buffer=audioBuffers[path];
+      src.connect(ac.destination);src.start();
+    } else {
+      // Load on demand
+      fetch(path).then(r=>r.arrayBuffer()).then(ab=>ac.decodeAudioData(ab)).then(buf=>{
+        audioBuffers[path]=buf;
+        const src=ac.createBufferSource();src.buffer=buf;
+        src.connect(ac.destination);src.start();
+      }).catch(()=>{});
     }
-  }
-  // Финальный клик — громче
-  const bs=Math.floor(sr*0.49);
-  const cl=Math.floor(sr*0.005);
-  for(let j=0;j<cl&&bs+j<d.length;j++){
-    const env=Math.exp(-j/(sr*0.001));
-    d[bs+j]+=env*0.7*Math.sin(j*2*Math.PI*2000/sr);
-  }
-  const src=ac.createBufferSource();src.buffer=buf;
-  src.connect(ac.destination);src.start(t);}catch(e){}
+  }catch(e){}
 }
-// Space/backspace/tab: short carriage slide
-function playSlide(){
-  try{const ac=getAC(),t=ac.currentTime,sr=ac.sampleRate;
-  const buf=ac.createBuffer(1,Math.floor(sr*0.06),sr);const d=buf.getChannelData(0);
-  for(let i=0;i<d.length;i++){const env=Math.exp(-i/(sr*0.018));
-    d[i]=env*((Math.random()*2-1)*0.1+0.07*Math.sin(i*2*Math.PI*110/sr));}
-  const src=ac.createBufferSource();src.buffer=buf;
-  const f=ac.createBiquadFilter();f.type='lowpass';f.frequency.value=800;
-  src.connect(f);f.connect(ac.destination);src.start(t);}catch(e){}
-}
-// Roll drum: short Hr-r-r
-function playRoll(){
-  try{const ac=getAC(),t=ac.currentTime,sr=ac.sampleRate;
-  const buf=ac.createBuffer(1,Math.floor(sr*0.1),sr);const d=buf.getChannelData(0);
-  for(let i=0;i<d.length;i++){const p=i/d.length;
-    const env=p<0.1?p*10:Math.exp(-(p-0.1)*5);
-    d[i]=env*((Math.random()*2-1)*0.08+0.06*Math.sin(i*2*Math.PI*85/sr));}
-  const src=ac.createBufferSource();src.buffer=buf;
-  const f=ac.createBiquadFilter();f.type='lowpass';f.frequency.value=500;
-  src.connect(f);f.connect(ac.destination);src.start(t);}catch(e){}
-}
-// Shift/lock: soft click
-function playClick(){
-  try{const ac=getAC(),t=ac.currentTime,sr=ac.sampleRate;
-  const buf=ac.createBuffer(1,Math.floor(sr*0.015),sr);const d=buf.getChannelData(0);
-  for(let i=0;i<d.length;i++){d[i]=Math.exp(-i/(sr*0.003))*(Math.random()*2-1)*0.15;}
-  const src=ac.createBufferSource();src.buffer=buf;src.connect(ac.destination);src.start(t);}catch(e){}
-}
-// Margin release: click + hollow ding
-function playMarRel(){
-  try{const ac=getAC(),t=ac.currentTime;
-  playClick();
-  const osc=ac.createOscillator(),g=ac.createGain();
-  osc.type='sine';osc.frequency.setValueAtTime(1800,t+0.015);
-  g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(0.1,t+0.02);
-  g.gain.exponentialRampToValueAtTime(0.001,t+0.18);
-  osc.connect(g);g.connect(ac.destination);osc.start(t+0.015);osc.stop(t+0.18);}catch(e){}
-}
+function playKeystroke(){playFromPool('strike');}
+function playBell(){playFromPool('bell');}
+function playCR(){playFromPool('cr');}
+function playSlide(){playFromPool('space');}
+function playRoll(){playFromPool('roll');}
+function playClick(){playFromPool('shift');}
+function playMarRel(){playFromPool('lever');}
 // === CHARACTER MAP ===
 const keyRows=[
 [{l:'1',u:'!',c:'Digit1'},{l:'2',u:'"',c:'Digit2'},{l:'3',u:'#',c:'Digit3'},
@@ -280,7 +246,7 @@ function doTab(){
   if(t>RIGHT_MARGIN&&!marginReleased)t=RIGHT_MARGIN+1;
   cursorCol=t;checkBell(oc,cursorCol);updateCursor();panToCursor();
 }
-function doBackspace(){if(cursorCol>1){cursorCol--;playSlide();updateCursor();panToCursor();}}
+function doBackspace(){if(cursorCol>1){cursorCol--;playFromPool('backspace');updateCursor();panToCursor();}}
 function doCR(){
   if(cursorRow>=ROWS)return;
   cursorRow++;cursorCol=INITIAL_COL;marginReleased=false;
@@ -580,7 +546,7 @@ function layout(){
   applyView();
 }
 
-function init(){buildKB();layout();updateCursor();
+function init(){buildKB();layout();updateCursor();preloadAudio();
   window.addEventListener('resize',()=>{layout();updateCursor();});
   // Enable iOS long-press save: overlay an <img> that updates on long-press
   let longPressTimer=null;

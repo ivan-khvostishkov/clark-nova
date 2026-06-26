@@ -27,14 +27,13 @@ self.addEventListener('fetch', event => {
     caches.match(event.request).then(cached => {
       if (cached) return cached;
       return fetch(event.request).then(response => {
-        // Cache font files and other assets on first fetch
-        if (response.ok && (event.request.url.includes('fonts.gstatic.com') || event.request.url.includes('fonts.googleapis.com'))) {
+        // Cache font files and audio files on first fetch
+        if (response.ok && (event.request.url.includes('fonts.gstatic.com') || event.request.url.includes('fonts.googleapis.com') || event.request.url.includes('/audio/'))) {
           const clone = response.clone();
           caches.open(CACHE_NAME).then(cache => cache.put(event.request, clone));
         }
         return response;
       }).catch(() => {
-        // Offline fallback for navigation
         if (event.request.mode === 'navigate') {
           return caches.match('/index.html');
         }
