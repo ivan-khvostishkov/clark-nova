@@ -95,9 +95,9 @@ ctx.textAlign='start';ctx.textBaseline='alphabetic';
 // === AUDIO (using real typewriter samples from audio/ directory) ===
 // Edit these constants to select your preferred sound files:
 const SOUND_STRIKE = 'audio/COMType_Typewriter%20Single%20Strike%201%20DPA4060_PMSFX_CWT.wav';
-const SOUND_SPACE = 'audio/COMType_Typewriter%20Space%20Spacebar%2063%20DPA4060_PMSFX_CWT.wav';
+const SOUND_SPACE = 'audio/COMType_Typewriter%20Space%20Spacebar%2066%20DPA4060_PMSFX_CWT.wav';
 const SOUND_BACKSPACE = 'audio/COMType_Typewriter%20Backspace%2081%20DPA4060_PMSFX_CWT.wav';
-const SOUND_CR = 'audio/COMType_Typewriter%20Carriage%20Return%20Movement%2092%20DPA4060_PMSFX_CWT.wav';
+const SOUND_CR = 'audio/COMType_Typewriter%20Carriage%20Return%20Movement%20105%20DPA4060_PMSFX_CWT.wav';
 const SOUND_BELL = 'audio/COMType_Typewriter%20Bell%20223%20DPA4060_PMSFX_CWT.wav';
 const SOUND_SHIFT = 'audio/COMType_Typewriter%20Shit%20Press%20Release%2036%20DPA4060_PMSFX_CWT.wav';
 const SOUND_ROLL = 'audio/COMType_Typewritter%20Roller%20Knob%20Movement%20208%20DPA4060_PMSFX_CWT.wav';
@@ -254,7 +254,7 @@ function handleKeyDown(e){
   if(c==='Backspace'){doBackspace();hlK('Backspace',1);e.preventDefault();return;}
   if(c==='Tab'){doTab();hlK('Tab',1);e.preventDefault();return;}
   if(c==='Space'){doSpace();hlK('Space',1);e.preventDefault();return;}
-  if(c==='ControlRight'){doMarRel();hlK('MarRel',1);e.preventDefault();return;}
+  if(c==='ControlRight'){doMarRel();hlK('MarRel',1);e.preventDefault();setTimeout(()=>hlK('MarRel',0),150);return;}
   if(c==='ArrowUp'){doUp();hlK('ArrowUp',1);e.preventDefault();return;}
   if(c==='ArrowDown'){doDown();hlK('ArrowDown',1);e.preventDefault();return;}
   const kd=codeToKey[c];
