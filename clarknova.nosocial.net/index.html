@@ -60,11 +60,11 @@ width:2480px;height:3508px}
 (function(){
 'use strict';
 // === GRID ===
-// 2480x3508. 80 cols. CELL_W=31. CELL_H=52. ROWS=66.
-// 66*52=3432. Remainder=76. Pad: 38 top + 38 bottom. 38+3432+38=3508.
-const CELL_W=31,CELL_H=52,COLS=80,ROWS=66;
+// 2480x3508. 80 cols. CELL_W=31. CELL_H=72. ROWS=48.
+// 48*72=3456. Remainder=52. Pad: 26 top + 26 bottom. 26+3456+26=3508.
+const CELL_W=31,CELL_H=72,COLS=80,ROWS=48;
+const GRID_TOP=26; // padding before first row
 const CANVAS_W=2480,CANVAS_H=3508;
-const GRID_TOP=38; // padding before first row
 const LEFT_MARGIN=11,RIGHT_MARGIN=70,HARD_RIGHT=80,BELL_COL=63;
 const INITIAL_ROW=5,INITIAL_COL=11;
 const RULER_H=28,ROLL_W=28;
@@ -199,17 +199,21 @@ function typeCharacter(ch){
   const x=(cursorCol-1)*CELL_W;
   const y=GRID_TOP+(cursorRow-1)*CELL_H;
   // Ink-on-paper effect: shadow for bleed, then crisp text
+  // Per-glyph horizontal offset: narrow chars nudged right so spacing feels even
+  const narrowChars={'!':2};
+  const xOff=CELL_W/2+(narrowChars[ch]||0);
   ctx.save();
   ctx.shadowColor='rgba(10,10,30,0.3)';
   ctx.shadowBlur=1.2;
   ctx.shadowOffsetX=0.4;ctx.shadowOffsetY=0.4;
-  ctx.font='34px "Special Elite","Courier Prime",monospace';
-  ctx.fillStyle='#0a0a1e';ctx.textBaseline='top';
-  ctx.fillText(ch,x+3,y+11);
+  ctx.font='56px "Special Elite","Courier Prime",monospace';
+  ctx.fillStyle='#0a0a1e';ctx.textAlign='center';ctx.textBaseline='top';
+  ctx.fillText(ch,x+xOff,y+11);
   ctx.restore();
-  ctx.font='34px "Special Elite","Courier Prime",monospace';
-  ctx.fillStyle='#0a0a1e';ctx.textBaseline='top';
-  ctx.fillText(ch,x+3,y+11);
+  ctx.font='56px "Special Elite","Courier Prime",monospace';
+  ctx.fillStyle='#0a0a1e';ctx.textAlign='center';ctx.textBaseline='top';
+  ctx.fillText(ch,x+xOff,y+11);
+  ctx.textAlign='start';
   playKeystroke();
   if(cursorCol>=HARD_RIGHT){updateCursor();return;}
   const oc=cursorCol;cursorCol++;
@@ -593,7 +597,7 @@ function init(){buildKB();layout();updateCursor();preloadAudio();
   pc.addEventListener('touchmove',()=>{clearTimeout(longPressTimer);},{passive:true});
 }
 // Wait for Special Elite font to fully load before enabling typing
-document.fonts.load('34px "Special Elite"').then(()=>{fontsReady=true;init();}).catch(()=>{fontsReady=true;init();});
+document.fonts.load('56px "Special Elite"').then(()=>{fontsReady=true;init();}).catch(()=>{fontsReady=true;init();});
 
 // === LOAD BACKGROUND IMAGE ===
 document.addEventListener('change',function(e){
