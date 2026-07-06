@@ -546,12 +546,12 @@ function layout(){
   // Base scale: fit paper width in viewport
   baseScale=Math.min((vpW-20)/CANVAS_W,1);
   
-  // On small screens, zoom so ~40 columns (0-40) fill the width
-  // This keeps cursor visible and text readable
+  // On small screens, zoom so ~55 columns fill the width
+  // Letters are large enough at this zoom to be readable
   const smallScreen=(vpW<800);
   if(smallScreen){
-    // Show about 40 columns worth = 40*31 = 1240px of paper fitting in vpW
-    const initialScale=(vpW-10)/(40*CELL_W);
+    // Show about 55 columns worth = 55*31 = 1705px of paper fitting in vpW
+    const initialScale=(vpW-10)/(55*CELL_W);
     if(viewScale<=baseScale||viewScale===1)viewScale=initialScale;
   } else {
     if(viewScale<baseScale*0.5)viewScale=baseScale;
@@ -615,7 +615,9 @@ document.addEventListener('change',function(e){
         e.target.value='';
         return;
       }
-      // Draw image as new background (replaces any previous background)
+      // Clear canvas with white, then draw loaded page on top (clean replace)
+      ctx.fillStyle='#ffffff';
+      ctx.fillRect(0,0,CANVAS_W,CANVAS_H);
       ctx.drawImage(img,0,0);
       status.style.color='#8f8';
       status.textContent='Page loaded. Ready to type.';
