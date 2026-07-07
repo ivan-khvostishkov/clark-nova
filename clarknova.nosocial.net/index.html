@@ -308,14 +308,14 @@ function hlK(c,on){
 function uSL(){const el=keyElements['ShiftLock'];if(el){if(shiftLocked)el.classList.add('locked');else el.classList.remove('locked');}}
 function buildKB(){
   const kb=document.createElement('div');kb.className='keyboard';
-  const r1=mkR();r1.appendChild(mkS('BS','Backspace',1.4));
-  keyRows[0].forEach(k=>r1.appendChild(mkC(k)));r1.appendChild(mkS('TAB','Tab',1.4));kb.appendChild(r1);
-  const r2=mkR();keyRows[1].forEach(k=>r2.appendChild(mkC(k)));kb.appendChild(r2);
-  const r3=mkR();r3.appendChild(mkS('LOCK','ShiftLock',1.6));
-  keyRows[2].forEach(k=>r3.appendChild(mkC(k)));r3.appendChild(mkS('\u21B5','Enter',1.6));kb.appendChild(r3);
-  const r4=mkR();r4.appendChild(mkS('\u21E7','ShiftLeft',1.6));
+  const r1=mkR();r1.appendChild(mkS('BS','Backspace',1.1));
+  keyRows[0].forEach(k=>r1.appendChild(mkC(k)));r1.appendChild(mkS('TAB','Tab',1.1));kb.appendChild(r1);
+  const r2=mkR();keyRows[1].forEach(k=>r2.appendChild(mkC(k)));r2.appendChild(mkS('MR','MarRel',1.0));kb.appendChild(r2);
+  const r3=mkR();r3.appendChild(mkS('LOCK','ShiftLock',1.2));
+  keyRows[2].forEach(k=>r3.appendChild(mkC(k)));r3.appendChild(mkS('\u21B5','Enter',1.2));kb.appendChild(r3);
+  const r4=mkR();r4.appendChild(mkS('\u21E7','ShiftLeft',1.2));
   keyRows[3].forEach(k=>r4.appendChild(mkC(k)));
-  r4.appendChild(mkS('\u21E7','ShiftRight',1.6));r4.appendChild(mkS('MR','MarRel',1.1));kb.appendChild(r4);
+  r4.appendChild(mkS('\u21E7','ShiftRight',1.2));kb.appendChild(r4);
   const r5=mkR();const spKey=mkS('','Space',8);spKey.style.flex='1 1 45%';spKey.style.maxWidth='45%';spKey.style.borderRadius='6px';spKey.style.aspectRatio='auto';spKey.style.height='30px';kb.appendChild(r5);r5.appendChild(spKey);
   keyboardArea.innerHTML='';keyboardArea.appendChild(kb);
 }
@@ -546,12 +546,12 @@ function layout(){
   // Base scale: fit paper width in viewport
   baseScale=Math.min((vpW-20)/CANVAS_W,1);
   
-  // On small screens, zoom so ~55 columns fill the width
-  // Letters are large enough at this zoom to be readable
+  // On small screens, zoom so ~45 columns fill the width
+  // This keeps cursor visible and text readable
   const smallScreen=(vpW<800);
   if(smallScreen){
-    // Show about 55 columns worth = 55*31 = 1705px of paper fitting in vpW
-    const initialScale=(vpW-10)/(55*CELL_W);
+    // Show about 45 columns worth = 45*31 = 1395px of paper fitting in vpW
+    const initialScale=(vpW-10)/(45*CELL_W);
     if(viewScale<=baseScale||viewScale===1)viewScale=initialScale;
   } else {
     if(viewScale<baseScale*0.5)viewScale=baseScale;
@@ -653,45 +653,50 @@ border:1px solid #333;box-shadow:inset 0 1px 2px rgba(255,255,255,0.2);overflow:
 background:#222;border-radius:1px;transform:translate(-50%,-50%)}
 /* Keyboard - fills width on mobile */
 #keyboard-area{background:#5ab4ac;display:flex;align-items:stretch;
-justify-content:center;padding:4px 2px 6px;flex-shrink:0;border-top:3px solid #3d8c85}
+justify-content:center;padding:4px 8px 6px;flex-shrink:0;border-top:3px solid #3d8c85}
 .keyboard{display:flex;flex-direction:column;justify-content:space-between;align-items:center;width:100%;max-width:700px;height:100%}
 .kb-row{display:flex;gap:2px;justify-content:center;width:100%;flex:1;align-items:center}
-.key{height:90%;min-width:0;border-radius:50% 50% 50% 50% / 55% 55% 45% 45%;background:#f5f0e8;
+/* All character keys: fixed square size driven by longest row.
+   Longest row = BS(1.4) + 12 keys + TAB(1.4) = 14.8 units, gap 2px×13.
+   Key width ≈ (100vw - 16px padding - ~13×2px gap) / 14.8
+   We use a safe value: clamp between 24px and 42px */
+.key{min-width:0;
+  width: clamp(24px, calc((100vw - 16px - 26px) / 14.8), 42px);
+  height: clamp(24px, calc((100vw - 16px - 26px) / 14.8), 42px);
+  flex: 0 0 clamp(24px, calc((100vw - 16px - 26px) / 14.8), 42px);
+  border-radius:50% 50% 50% 50% / 55% 55% 45% 45%;background:#f5f0e8;
 border:2px solid #999;display:flex;flex-direction:column;align-items:center;
 justify-content:center;cursor:pointer;font-size:12px;
 font-family:'Courier Prime','Courier New',monospace;font-weight:bold;color:#222;
 box-shadow:1px 1px 2px rgba(0,0,0,0.3);transition:background .05s,transform .05s;
-flex:1 1 0;aspect-ratio:1;max-width:44px;
--webkit-tap-highlight-color:transparent;overflow:hidden;padding-bottom:6px}
+-webkit-tap-highlight-color:transparent;overflow:hidden;padding-bottom:4px}
 /* digit/symbol keys: shift content block down a few px, keep gap between chars */
 .key.ck{padding-top:4px;padding-bottom:0}
 /* digit row (row 1): needs more top padding — symbols like ! sit too high */
 .kb-row:first-child .key.ck{padding-top:8px;padding-bottom:0}
 /* bottom row (row 4): , . / sit low — keep default centering */
 .kb-row:last-child .key.ck{padding-top:2px;padding-bottom:2px}
-.key .ku{font-size:11px;color:#444;line-height:1;margin-bottom:0px}
-.key .kl{font-size:16px;line-height:1;margin-top:2px}
-.key .kl-only{font-size:18px;line-height:1}
+.key .ku{font-size:10px;color:#444;line-height:1;margin-bottom:0px}
+.key .kl{font-size:14px;line-height:1;margin-top:2px}
+.key .kl-only{font-size:16px;line-height:1}
 .key.pressed,.key:active{background:#333;color:#fff;transform:translateY(1px);box-shadow:none}
 .key.pressed .ku,.key.pressed .kl{color:#fff}
 .key.locked{background:#ff6;border-color:#cc0}
 .key.mar-active{background:#fcc;border-color:#f44}
 .key.mar-active .label{color:#c00}
-.sk{border-radius:5px;font-size:9px}
+.sk{border-radius:5px;font-size:9px;width:auto !important;height:calc(clamp(24px, calc((100vw - 16px - 26px) / 14.8), 42px) * 0.8) !important;margin:0 3px}
 .sk .label{text-align:center;line-height:1.1;white-space:nowrap}
 /* Space bar row */
 #keyboard-area .kb-row:last-child .key{margin-top:0}
 /* Make keyboard bigger on small screens */
 @media(max-width:600px){
   .keyboard{max-width:100%}
-  .key{font-size:11px;max-width:38px}
   .key .ku{font-size:9px}.key .kl{font-size:14px}.key .kl-only{font-size:16px}
   .sk{font-size:8px}
   .kb-row{gap:1px}
-  #keyboard-area{padding:3px 1px 5px}
+  #keyboard-area{padding:3px 6px 5px}
 }
 @media(max-width:400px){
-  .key{font-size:9px;max-width:32px}
   .key .ku{font-size:8px}.key .kl{font-size:12px}.key .kl-only{font-size:14px}
   .sk{font-size:7px}
 }
