@@ -673,7 +673,7 @@ box-shadow:1px 1px 2px rgba(0,0,0,0.3);transition:background .05s,transform .05s
 /* digit/symbol keys: no override needed now */
 .key .ku{font-size:7px;color:#444;line-height:1;margin-bottom:0px}
 .key .kl{font-size:9px;line-height:1;margin-top:1px}
-.key .kl-only{font-size:10px;line-height:1}
+.key .kl-only{font-size:12px;line-height:1}
 .key.pressed,.key:active{background:#333;color:#fff;transform:translateY(1px);box-shadow:none}
 .key.pressed .ku,.key.pressed .kl{color:#fff}
 .key.locked{background:#ff6;border-color:#cc0}
@@ -686,13 +686,13 @@ box-shadow:1px 1px 2px rgba(0,0,0,0.3);transition:background .05s,transform .05s
 /* Make keyboard bigger on small screens */
 @media(max-width:600px){
   .keyboard{max-width:100%}
-  .key .ku{font-size:7px}.key .kl{font-size:9px}.key .kl-only{font-size:10px}
+  .key .ku{font-size:7px}.key .kl{font-size:9px}.key .kl-only{font-size:12px}
   .sk{font-size:8px}
   .kb-row{gap:1px}
   #keyboard-area{padding:3px 6px 5px}
 }
 @media(max-width:400px){
-  .key .ku{font-size:6px}.key .kl{font-size:8px}.key .kl-only{font-size:9px}
+  .key .ku{font-size:7px}.key .kl{font-size:10px}.key .kl-only{font-size:11px}
   .sk{font-size:7px}
 }
 </style>
