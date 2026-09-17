@@ -1,4 +1,4 @@
-const CACHE_NAME = 'clark-nova-v50';
+const CACHE_NAME = 'clark-nova-v52';
 const ASSETS = [
   '/',
   '/index.html',
