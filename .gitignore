@@ -1,1 +1,12 @@
 audio_unused/
+
+# CI build output (see .github/workflows/build.yml)
+dist/
+.ci/
+*.zip
+
+# CI-only validator dependencies. The site itself has no dependencies and no
+# build step, so none of this is committed.
+node_modules/
+package.json
+package-lock.json

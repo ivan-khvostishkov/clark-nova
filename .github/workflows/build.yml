@@ -1,0 +1,148 @@
+name: build
+
+on:
+  push:
+    branches: ['**']
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  SITE_DIR: clarknova.nosocial.net
+
+jobs:
+  build:
+    name: Validate and package
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Check out
+        uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # The repo deliberately has no committed package.json: the site has zero
+      # runtime dependencies and nothing should ever try to "build" it. The
+      # parsers below are CI-only tools, installed into a throwaway manifest.
+      - name: Install parsers
+        run: |
+          set -euo pipefail
+          [ -f package.json ] || npm init -y > /dev/null
+          npm install --no-save --no-audit --no-fund parse5@^7 acorn@^8 css-tree@^2
+
+      - name: Static checks (HTML, CSS, JS, JSON, references)
+        run: node tools/validate.mjs "$SITE_DIR"
+
+      # Second opinion from V8 itself on every piece of JS that ships,
+      # including the inline <script> blocks extracted by the step above.
+      - name: Byte-compile all JavaScript
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+          files=("$SITE_DIR"/*.js .ci/extracted/*.js)
+          if [ ${#files[@]} -eq 0 ]; then echo "no JavaScript found to check"; exit 1; fi
+          for f in "${files[@]}"; do
+            echo "node --check $f"
+            node --check "$f"
+          done
+
+      - name: Verify no leftover debug code
+        run: |
+          set -euo pipefail
+          if grep -rn --include='*.js' --include='*.html' -E '\b(debugger|console\.(log|debug))\s*\(' "$SITE_DIR"; then
+            echo "::error::debugger/console statements must not ship"
+            exit 1
+          fi
+          echo "clean"
+
+      - name: Assemble Amplify deploy archive
+        id: pkg
+        run: |
+          set -euo pipefail
+          # Version comes from the service worker cache name, so the artifact
+          # name always matches what clients will see after the deploy.
+          version=$(sed -n "s/.*CACHE_NAME[[:space:]]*=[[:space:]]*['\"]\([^'\"]*\)['\"].*/\1/p" "$SITE_DIR/sw.js" | head -1)
+          version=${version:-unversioned}
+          zip_name="${version}-${GITHUB_SHA::7}.zip"
+
+          rm -rf dist "$zip_name"
+          mkdir dist
+          # Contents of the site dir, not the dir itself: Amplify needs
+          # index.html at the archive root, with no wrapping folder.
+          cp -R "$SITE_DIR"/. dist/
+          rm -rf dist/audio_unused
+          find dist -name '.DS_Store' -delete
+          find dist -name 'Thumbs.db' -delete
+
+          ( cd dist && zip -r -X "../$zip_name" . -x '.*' '*/.*' )
+
+          {
+            echo "zip_name=$zip_name"
+            echo "artifact_name=${version}-${GITHUB_SHA::7}"
+            echo "version=$version"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Verify archive layout
+        run: |
+          set -euo pipefail
+          zip_name='${{ steps.pkg.outputs.zip_name }}'
+          unzip -l "$zip_name"
+
+          entries=$(unzip -Z1 "$zip_name")
+
+          # index.html must sit at the root, not inside a folder.
+          grep -qx 'index.html' <<<"$entries" \
+            || { echo "::error::index.html is not at the archive root"; exit 1; }
+          if grep -qE '^[^/]+/index\.html$' <<<"$entries"; then
+            echo "::error::index.html is nested inside a subdirectory"; exit 1
+          fi
+          if grep -qE '^\./' <<<"$entries"; then
+            echo "::error::archive entries carry a ./ prefix"; exit 1
+          fi
+
+          # Nothing dropped, nothing extra.
+          diff <(cd dist && find . -type f | sed 's|^\./||' | LC_ALL=C sort) \
+               <(grep -v '/$' <<<"$entries" | LC_ALL=C sort) \
+            || { echo "::error::archive contents differ from dist/"; exit 1; }
+
+          echo "archive layout OK"
+
+      - name: Summary
+        run: |
+          set -euo pipefail
+          zip_name='${{ steps.pkg.outputs.zip_name }}'
+          {
+            echo "### Amplify deploy archive"
+            echo
+            echo "| | |"
+            echo "|---|---|"
+            echo "| Archive | \`$zip_name\` |"
+            echo "| Version | \`${{ steps.pkg.outputs.version }}\` |"
+            echo "| Size | $(du -h "$zip_name" | cut -f1) |"
+            echo "| Files | $(unzip -Z1 "$zip_name" | grep -vc '/$') |"
+            echo
+            echo "Download the artifact, unzip it once to get \`$zip_name\`, then upload"
+            echo "that archive in the Amplify console (manual deploy)."
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Publish archive
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.pkg.outputs.artifact_name }}
+          path: ${{ steps.pkg.outputs.zip_name }}
+          if-no-files-found: error
+          retention-days: 90
+          compression-level: 0
