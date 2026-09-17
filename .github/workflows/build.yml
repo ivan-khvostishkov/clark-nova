@@ -27,12 +27,14 @@ jobs:
 
     steps:
       - name: Check out
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
+      # v5 action releases run on the runner's Node 24; the v4 line still
+      # declared the deprecated Node 20 runtime and warned on every build.
       - name: Set up Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v5
         with:
-          node-version: '20'
+          node-version: '24'
 
       # The repo deliberately has no committed package.json: the site has zero
       # runtime dependencies and nothing should ever try to "build" it. The
@@ -140,7 +142,7 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Publish archive
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: ${{ steps.pkg.outputs.artifact_name }}
           path: dist
