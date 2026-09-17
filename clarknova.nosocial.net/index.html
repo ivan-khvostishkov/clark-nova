@@ -53,8 +53,12 @@ width:2480px;height:3508px}
 <div id="ruler-bottom" class="ruler-wrap"></div>
 </div>
 <div id="nameplate"><span class="np-plate" onclick="document.getElementById('info-popup').style.display='flex'"><span class="np-screw"></span><span class="np-text">Clark Nova</span><span class="np-screw"></span></span></div>
-<div id="info-popup" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:9999;align-items:center;justify-content:center;overflow-y:auto" onclick="this.style.display='none'"><div style="background:#2a2a2a;border:1px solid #555;border-radius:12px;padding:18px 22px;text-align:left;max-width:480px;width:90%;margin:20px auto;color:#ccc;font-size:11px;line-height:1.5;position:relative;user-select:text;-webkit-user-select:text" onclick="event.stopPropagation()"><button onclick="document.getElementById('info-popup').style.display='none'" style="position:absolute;top:10px;right:12px;background:none;border:none;color:#888;font-size:18px;line-height:1;cursor:pointer;padding:2px 6px;border-radius:4px" title="Close">&#x2715;</button><div style="text-align:center;margin-bottom:10px"><div style="font-family:'EB Garamond',Georgia,serif;font-style:italic;font-size:18px;font-weight:700;color:#d8c89c">Clark Nova</div><div style="color:#888;font-size:10px;margin-top:2px">Typewriter by NoSocial.Net and Ivan Khvostishkov</div><div style="margin-top:6px"><a href="mailto:clarknova@nosocial.net" style="color:#5ab4ac;font-size:11px;text-decoration:none">clarknova@nosocial.net</a></div></div><div style="border-top:1px solid #444;padding-top:8px;margin-bottom:8px"><b style="color:#eee">Desktop:</b> Type with keyboard — keys light up. Shift = hold Shift | Lock = Shift+LCtrl | Enter = CR | BS = move left (no erase) | Tab = next stop | RCtrl = margin release | ↑↓ = roll paper | Scroll = zoom | Drag = pan</div><div style="border-top:1px solid #444;padding-top:8px;margin-bottom:8px"><b style="color:#eee">Mobile:</b> Tap keys to type | Pinch = zoom | Drag = pan | Hold Shift + tap key = uppercase | ▲▼ = roll paper</div><div style="border-top:1px solid #444;padding-top:8px;margin-bottom:8px"><b style="color:#eee">Aim:</b> A key only types when the press lands near its centre. A press on the key border, in a gap between keys, or off-centre is a miss and types nothing.<br><label for="guides-toggle" style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;margin-top:6px"><input type="checkbox" id="guides-toggle" style="margin-top:2px;width:15px;height:15px;accent-color:#5ab4ac;flex-shrink:0;cursor:pointer"><span><b id="guides-label" style="color:#eee">Touch guides (off)</b><br>Show where you are actually pressing, to calibrate your aim: a red crosshair marks the exact spot you touched and fades out, and the keyboard flashes red on a miss.</span></label></div><div style="border-top:1px solid #444;padding-top:8px;margin-bottom:8px"><b style="color:#eee">Rules:</b> Characters are permanent (ink). BS moves cursor back for overstriking. Bell at col 63. Margin stop at 71 — press MR to continue. Hard stop at 80 (prints in place). Reload = fresh sheet.</div><div style="border-top:1px solid #444;padding-top:8px;margin-bottom:8px"><b style="color:#eee">Pull the sheet:</b><br>Desktop — right-click the paper and choose <i>Save image as…</i><br>Mobile (iOS/Android) — long-press the paper, then tap <i>Save to Photos</i> or <i>Download image</i></div><div style="border-top:1px solid #444;padding-top:8px;margin-bottom:8px"><b style="color:#eee">Insert a page:</b> Feed a previously pulled sheet, a form, or a card to type on top of it. The page must be 2480 × 3508 px (a sheet pulled from Clark Nova) — ±1 px tolerance for rounding.<br><br><input type="file" id="load-bg-input" accept="image/*" style="display:none"></div><div style="text-align:center;border-top:1px solid #444;padding-top:10px"><button onclick="document.getElementById('load-bg-input').click()" style="background:#444;color:#ccc;border:1px solid #666;padding:5px 18px;border-radius:4px;cursor:pointer;font-size:11px">Insert a page…</button><span id="load-bg-status" style="display:block;margin-top:6px;color:#aaa;font-size:10px"></span></div></div></div>
+<div id="info-popup" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:9999;align-items:center;justify-content:center;overflow-y:auto" onclick="this.style.display='none'"><div style="background:#2a2a2a;border:1px solid #555;border-radius:12px;padding:18px 22px;text-align:left;max-width:480px;width:90%;margin:20px auto;color:#ccc;font-size:11px;line-height:1.5;position:relative;user-select:text;-webkit-user-select:text" onclick="event.stopPropagation()"><button onclick="document.getElementById('info-popup').style.display='none'" style="position:absolute;top:10px;right:12px;background:none;border:none;color:#888;font-size:18px;line-height:1;cursor:pointer;padding:2px 6px;border-radius:4px" title="Close">&#x2715;</button><div style="text-align:center;margin-bottom:10px"><div style="font-family:'EB Garamond',Georgia,serif;font-style:italic;font-size:18px;font-weight:700;color:#d8c89c">Clark Nova</div><div style="color:#888;font-size:10px;margin-top:2px">Typewriter by NoSocial.Net and Ivan Khvostishkov</div><div style="margin-top:6px"><a href="mailto:clarknova@nosocial.net" style="color:#5ab4ac;font-size:11px;text-decoration:none">clarknova@nosocial.net</a></div></div><div style="border-top:1px solid #444;padding-top:8px;margin-bottom:8px"><b style="color:#eee">Desktop:</b> Type with keyboard — keys light up. Shift = hold Shift | Lock = Shift+LCtrl | Enter = CR | BS = move left (no erase) | Tab = next stop | RCtrl = margin release | ↑↓ = roll paper | Scroll = zoom | Drag = pan</div><div style="border-top:1px solid #444;padding-top:8px;margin-bottom:8px"><b style="color:#eee">Mobile:</b> Tap keys to type | Pinch = zoom | Drag = pan | Hold Shift + tap key = uppercase | ▲▼ = roll paper</div><div style="border-top:1px solid #444;padding-top:8px;margin-bottom:8px"><b style="color:#eee">Aim:</b> A key only types when the press lands near its centre. A press on the key border, in a gap between keys, or off-centre is a miss and types nothing.<br>After a miss the keyboard pauses for a second, and every further tap restarts that pause — stop, wait, then carry on.<br><label for="guides-toggle" style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;margin-top:6px"><input type="checkbox" id="guides-toggle" style="margin-top:2px;width:15px;height:15px;accent-color:#5ab4ac;flex-shrink:0;cursor:pointer"><span><b id="guides-label" style="color:#eee">Touch guides (off)</b><br>Show where you are actually pressing, to calibrate your aim: a small crosshair marks the exact spot you touched — teal on a hit, pink on a miss — and on a miss the pad fades from pink back to teal, which is the pause running out.</span></label></div><div style="border-top:1px solid #444;padding-top:8px;margin-bottom:8px"><b style="color:#eee">Rules:</b> Characters are permanent (ink). BS moves cursor back for overstriking. Bell at col 63. Margin stop at 71 — press MR to continue. Hard stop at 80 (prints in place). Reload = fresh sheet.</div><div style="border-top:1px solid #444;padding-top:8px;margin-bottom:8px"><b style="color:#eee">Pull the sheet:</b><br>Desktop — right-click the paper and choose <i>Save image as…</i><br>Mobile (iOS/Android) — long-press the paper, then tap <i>Save to Photos</i> or <i>Download image</i></div><div style="border-top:1px solid #444;padding-top:8px;margin-bottom:8px"><b style="color:#eee">Insert a page:</b> Feed a previously pulled sheet, a form, or a card to type on top of it. The page must be 2480 × 3508 px (a sheet pulled from Clark Nova) — ±1 px tolerance for rounding.<br><br><input type="file" id="load-bg-input" accept="image/*" style="display:none"></div><div style="text-align:center;border-top:1px solid #444;padding-top:10px"><button onclick="document.getElementById('load-bg-input').click()" style="background:#444;color:#ccc;border:1px solid #666;padding:5px 18px;border-radius:4px;cursor:pointer;font-size:11px">Insert a page…</button><span id="load-bg-status" style="display:block;margin-top:6px;color:#aaa;font-size:10px"></span></div></div></div>
 <div id="keyboard-area"></div>
+<!-- Inert strip along the very bottom edge: it belongs to no key and has no
+     handlers, so the swipe that switches apps on a phone cannot land on the
+     keyboard and set off the miss feedback. -->
+<div id="dead-zone" aria-hidden="true"></div>
 </div>
 <script>
 (function(){
@@ -315,6 +319,12 @@ document.addEventListener('keydown',handleKeyDown);
 document.addEventListener('keyup',handleKeyUp);
 // === SCHEMATIC KEYBOARD ===
 const keyboardArea=document.getElementById('keyboard-area');
+// Bottom dead zone: it holds no keys and answers no presses, so the app-switch
+// swipe along the bottom edge of the phone cannot trigger the miss feedback.
+const deadZone=document.getElementById('dead-zone');
+['touchstart','touchend','touchcancel','mousedown','click'].forEach(t=>{
+  deadZone.addEventListener(t,e=>{e.stopPropagation();},{passive:true});
+});
 const keyElements={};
 function hlK(c,on){
   const el=keyElements[c];if(el){if(on)el.classList.add('pressed');else el.classList.remove('pressed');}
@@ -332,8 +342,18 @@ function uSL(){const el=keyElements['ShiftLock'];if(el){if(shiftLocked)el.classL
 // Always on: a press only types when it lands near the key centre. Presses on
 // a key border, in a gap between keys, or off-centre are misses that type
 // nothing.
-// The visual feedback for this (crosshair guides + red miss flash) is opt-in
+// A miss also arms a short safety delay: nothing types until the hand has been
+// still for MISS_LOCK_MS. Every tap or click inside the window restarts the
+// countdown, so recovering from a miss means stopping, not hammering on.
+// The visual feedback for this (crosshair guides + pink miss fade) is opt-in
 // from the About dialog and off by default.
+const MISS_LOCK_MS=1000;
+let missUntil=0;
+function inLock(){return missUntil>performance.now();}
+function armMissLock(){
+  missUntil=performance.now()+MISS_LOCK_MS;
+  if(guidesOn)flashMiss();
+}
 let guidesOn=false;
 const GUIDES_KEY='cn-touch-guides';
 try{guidesOn=localStorage.getItem(GUIDES_KEY)==='1';}catch(e){}
@@ -347,6 +367,7 @@ function setGuides(on){
 const HIT_ROUND=0.70;   // fraction of the circle radius that is "live"
 const HIT_RECT=0.78;    // fraction of half-width/half-height on block keys
 const HIT_WIDE_X=0.96;  // space bar is long: only the ends are dead
+const HIT_WIDE_Y=0.92;  // ...and flat, so it keeps most of its height live
 function evPoint(e){
   // changedTouches first: that is the finger that just landed
   if(e.changedTouches&&e.changedTouches.length)return{x:e.changedTouches[0].clientX,y:e.changedTouches[0].clientY};
@@ -363,22 +384,38 @@ function hitOK(el,x,y){
     return Math.hypot(dx,dy)<=HIT_ROUND; // round key: radial distance
   }
   const tx=el.dataset.wide?HIT_WIDE_X:HIT_RECT;
-  return Math.abs(dx)<=tx&&Math.abs(dy)<=HIT_RECT;
+  const ty=el.dataset.wide?HIT_WIDE_Y:HIT_RECT;
+  return Math.abs(dx)<=tx&&Math.abs(dy)<=ty;
 }
 // Fading crosshair at the exact press point, so the user can see and
-// self-calibrate where the finger actually landed.
+// self-calibrate where the finger actually landed. Short segments, not
+// full-screen rules: enough to read the spot, not enough to be in the way.
+// Teal on a hit, pink on a miss.
 const guideLayer=document.createElement('div');
 guideLayer.id='press-guides';
 document.body.appendChild(guideLayer);
-function showGuides(x,y){
+const GUIDE_ARM=16;  // length of each crosshair arm
+const GUIDE_GAP=7;   // clear space between the point and the arms
+function showGuides(x,y,ok){
   if(x==null||y==null)return;
+  const cls='pg '+(ok?'hit':'miss');
   const parts=[];
-  const v=document.createElement('div');v.className='pg pg-v';v.style.left=(x-1)+'px';parts.push(v);
-  const h=document.createElement('div');h.className='pg pg-h';h.style.top=(y-1)+'px';parts.push(h);
-  const d=document.createElement('div');d.className='pg pg-d';d.style.left=(x-7)+'px';d.style.top=(y-7)+'px';parts.push(d);
+  function seg(l,t,w,h){
+    const d=document.createElement('div');d.className=cls;
+    d.style.left=l+'px';d.style.top=t+'px';d.style.width=w+'px';d.style.height=h+'px';
+    parts.push(d);
+  }
+  seg(x-1,y-GUIDE_GAP-GUIDE_ARM,2,GUIDE_ARM);
+  seg(x-1,y+GUIDE_GAP,2,GUIDE_ARM);
+  seg(x-GUIDE_GAP-GUIDE_ARM,y-1,GUIDE_ARM,2);
+  seg(x+GUIDE_GAP,y-1,GUIDE_ARM,2);
+  const dot=document.createElement('div');dot.className=cls+' pg-d';
+  dot.style.left=(x-6)+'px';dot.style.top=(y-6)+'px';parts.push(dot);
   parts.forEach(p=>{guideLayer.appendChild(p);
-    setTimeout(()=>{if(p.parentNode)p.parentNode.removeChild(p);},2600);});
+    setTimeout(()=>{if(p.parentNode)p.parentNode.removeChild(p);},MISS_LOCK_MS+300);});
 }
+// The pad fades from pink back to teal over exactly the safety delay, so the
+// colour is the countdown: type again when the teal is back.
 function flashMiss(){
   keyboardArea.classList.remove('miss');
   void keyboardArea.offsetWidth; // restart the animation on rapid misses
@@ -387,18 +424,28 @@ function flashMiss(){
 keyboardArea.addEventListener('animationend',e=>{
   if(e.target===keyboardArea)keyboardArea.classList.remove('miss');
 });
-// Visual-only: the hit test itself runs in the key handlers regardless.
+// One verdict per press, decided here in the capture phase before any key
+// handler runs, and stashed on the event for them to read. A press types only
+// when it lands on a key centre and no safety delay is running; anything else
+// is a miss that types nothing, highlights nothing, and (re)arms the delay.
 function onPadPress(e){
-  if(!guidesOn)return;
+  if(e.type==='mousedown'&&e.button!==0)return;
   if(e.type==='touchstart')e.preventDefault();
-  else if(e.type==='mousedown'&&e.button!==0)return;
   const p=evPoint(e);
-  showGuides(p.x,p.y);
-  const key=e.target.closest?e.target.closest('.key'):null;
-  if(!key||!hitOK(key,p.x,p.y))flashMiss();
+  const key=e.target&&e.target.closest?e.target.closest('.key'):null;
+  const ok=!!key&&hitOK(key,p.x,p.y)&&!inLock();
+  e._cnAllow=ok;
+  if(guidesOn)showGuides(p.x,p.y,ok);
+  if(!ok)armMissLock();
 }
-keyboardArea.addEventListener('touchstart',onPadPress,{passive:false});
-keyboardArea.addEventListener('mousedown',onPadPress);
+keyboardArea.addEventListener('touchstart',onPadPress,{capture:true,passive:false});
+keyboardArea.addEventListener('mousedown',onPadPress,true);
+// Physical keys are not aimed, so they are never gated: only pointer presses
+// carry a verdict from onPadPress.
+function pressAllowed(el,e,p){
+  if(typeof e._cnAllow==='boolean')return e._cnAllow;
+  return hitOK(el,p.x,p.y)&&!inLock();
+}
 function buildKB(){
   const kb=document.createElement('div');kb.className='keyboard';
   const r1=mkR();r1.appendChild(mkS('BS','Backspace',1.1));
@@ -409,12 +456,12 @@ function buildKB(){
   const r4=mkR();r4.appendChild(mkS('\u21E7','ShiftLeft',1.2));
   keyRows[3].forEach(k=>r4.appendChild(mkC(k)));
   r4.appendChild(mkS('\u21E7','ShiftRight',1.2));kb.appendChild(r4);
-  // Space bar: shorter and lifted off the bottom edge so it does not fight
-  // the phone's bottom-up swipe gesture area (see .space-row CSS).
+  // Space bar: short and flat; the bottom-edge clearance it used to carry now
+  // lives in #dead-zone, outside the pad.
   const r5=mkR();r5.classList.add('space-row');
   const spKey=mkS('','Space',8);spKey.dataset.wide='1';
-  spKey.style.flex='0 0 38%';spKey.style.maxWidth='38%';spKey.style.borderRadius='6px';
-  spKey.style.aspectRatio='auto';spKey.style.height='28px';
+  spKey.classList.add('spacebar');
+  spKey.style.flex='0 0 38%';spKey.style.maxWidth='38%'; // overrides mkS width
   kb.appendChild(r5);r5.appendChild(spKey);
   keyboardArea.innerHTML='';keyboardArea.appendChild(kb);
 }
@@ -434,7 +481,8 @@ function mkC(kd){
   const act=()=>typeCharacter(isShifted()?kd.u:kd.l);
   const press=e=>{e.preventDefault();
     const p=evPoint(e);
-    if(!hitOK(el,p.x,p.y))return; // off-centre: handled as a miss by the pad
+    // Miss or safety delay: no highlight, no sound, no character.
+    if(!pressAllowed(el,e,p))return;
     el.classList.add('pressed');act();};
   el.addEventListener('mousedown',press);
   el.addEventListener('mouseup',()=>el.classList.remove('pressed'));
@@ -451,7 +499,8 @@ function mkS(label,code,wM){
   keyElements[code]=el;
   function pr(e){e.preventDefault();
     const p=evPoint(e);
-    if(!hitOK(el,p.x,p.y))return; // off-centre: handled as a miss by the pad
+    // Miss or safety delay: no highlight, no sound, no action.
+    if(!pressAllowed(el,e,p))return;
     el.classList.add('pressed');
     if(code==='Backspace')doBackspace();else if(code==='Enter')doCR();
     else if(code==='Space')doSpace();else if(code==='Tab')doTab();
@@ -636,11 +685,48 @@ function clampView(){
   if(viewY<vpH-ph-50)viewY=vpH-ph-50;
 }
 // === LAYOUT ===
+// === KEYBOARD GEOMETRY ===
+// The pad is sized by its keys, not by a fraction of the screen: the key
+// diameter is whatever the longest row can fit across the width, and the pad
+// height is then 4 key rows + the space bar with a single tight gap between
+// rows (a 1.0 "line interval", not the 1.5 the old stretch-to-fill produced).
+const KB_ROWS=4;         // rows of character keys
+const KB_SK_FRAC=0.157;  // the two 1.1u block keys, as a fraction of row width
+const KB_SK_MARGIN=12;   // .sk left+right margins on those two keys
+const KB_BORDER=3;       // #keyboard-area border-top
+function kbMetrics(){
+  const appW=window.innerWidth;
+  const small=appW<=600;
+  const padX=small?6:8,padTop=3,padBottom=4;
+  const gapX=small?1:2;
+  const rowW=Math.min(appW-2*padX,700); // .keyboard max-width
+  // Longest row: 12 round keys + 2 block keys + 13 gaps must fit in rowW.
+  let keyW=(rowW*(1-KB_SK_FRAC)-13*gapX-KB_SK_MARGIN)/12;
+  keyW=Math.max(16,Math.min(42,keyW));
+  keyW=Math.floor(keyW*10)/10;
+  const rowGap=Math.max(2,Math.round(keyW*0.08));
+  const spaceH=Math.max(22,Math.min(30,Math.round(keyW*0.8)));
+  const h=Math.ceil(KB_BORDER+padTop+padBottom+KB_ROWS*keyW+spaceH+KB_ROWS*rowGap);
+  return{padX,padTop,padBottom,gapX,keyW,rowGap,spaceH,h};
+}
+function applyKbMetrics(m){
+  const s=document.documentElement.style;
+  s.setProperty('--kb-pad-x',m.padX+'px');
+  s.setProperty('--kb-pad-top',m.padTop+'px');
+  s.setProperty('--kb-pad-bottom',m.padBottom+'px');
+  s.setProperty('--kb-gap-x',m.gapX+'px');
+  s.setProperty('--kb-row-gap',m.rowGap+'px');
+  s.setProperty('--key-size',m.keyW+'px');
+  s.setProperty('--space-h',m.spaceH+'px');
+  s.setProperty('--miss-ms',MISS_LOCK_MS+'ms');
+}
 function layout(){
   const appW=window.innerWidth,appH=window.innerHeight;
-  const kbH=Math.max(140,Math.min(220,Math.floor(appH*0.28)));
+  const m=kbMetrics();applyKbMetrics(m);
+  const kbH=m.h;
   const npH=48;
-  const caH=appH-kbH-npH;
+  const dzH=Math.ceil(deadZone.getBoundingClientRect().height);
+  const caH=appH-kbH-npH-dzH;
   document.getElementById('canvas-area').style.height=caH+'px';
   document.getElementById('keyboard-area').style.height=kbH+'px';
   document.getElementById('nameplate').style.height=npH+'px';
@@ -761,33 +847,44 @@ background:radial-gradient(circle at 3px 3px,#aaa,#444);
 border:1px solid #333;box-shadow:inset 0 1px 2px rgba(255,255,255,0.2);overflow:hidden;position:relative}
 .np-screw::after{content:'';position:absolute;top:50%;left:50%;width:6px;height:1.5px;
 background:#222;border-radius:1px;transform:translate(-50%,-50%)}
-/* Keyboard - fills width on mobile */
-#keyboard-area{background:#5ab4ac;display:flex;align-items:stretch;
-justify-content:center;padding:4px 8px 6px;flex-shrink:0;border-top:3px solid #3d8c85}
-/* Miss feedback: the whole teal pad flashes red when a press lands
-   off-centre, on a key border, in a gap, or outside any key */
-@keyframes kbMiss{0%{background:#c0392b}55%{background:#c0392b}100%{background:#5ab4ac}}
-#keyboard-area.miss{animation:kbMiss .32s ease-out}
-/* Fading crosshair guides showing the exact press point */
+/* Bottom dead zone: a few inert pixels (plus whatever the phone reserves for
+   its home bar) between the space bar and the very bottom edge. */
+#dead-zone{height:6px;background:#3d8c85;flex-shrink:0;
+-webkit-tap-highlight-color:transparent}
+@supports(padding:env(safe-area-inset-bottom)){
+  #dead-zone{height:calc(6px + env(safe-area-inset-bottom))}
+}
+/* Keyboard - fills width on mobile; height comes from kbMetrics() in JS */
+#keyboard-area{background:#5ab4ac;display:flex;align-items:flex-start;
+justify-content:center;padding:var(--kb-pad-top) var(--kb-pad-x) var(--kb-pad-bottom);
+flex-shrink:0;border-top:3px solid #3d8c85}
+/* Miss feedback: the pad goes light pink and fades back to teal over exactly
+   the safety delay, so the colour doubles as the countdown. A press that lands
+   off-centre, on a key border, in a gap, or during the delay restarts it. */
+@keyframes kbMiss{0%,12%{background:#eda0ac}100%{background:#5ab4ac}}
+#keyboard-area.miss{animation:kbMiss var(--miss-ms,1000ms) ease-out}
+/* Fading crosshair guides showing the exact press point: short arms, teal on a
+   hit, pink on a miss */
 #press-guides{position:fixed;top:0;left:0;width:100%;height:100%;
 pointer-events:none;z-index:9000}
-.pg{position:fixed;pointer-events:none;background:rgba(220,50,50,0.9);
-animation:pgFade 2.4s ease-out forwards}
-.pg-v{width:2px;top:0;height:100%}
-.pg-h{height:2px;left:0;width:100%}
-.pg-d{width:12px;height:12px;border-radius:50%;background:rgba(220,50,50,0.55);
-border:1px solid rgba(255,120,120,0.9)}
+.pg{position:fixed;pointer-events:none;
+animation:pgFade var(--miss-ms,1000ms) ease-out forwards}
+.pg.hit{background:rgba(24,88,82,0.9)}
+.pg.miss{background:rgba(226,118,138,0.95)}
+.pg-d{width:12px;height:12px;border-radius:50%}
+.pg-d.hit{background:rgba(90,180,172,0.5);border:1px solid rgba(24,88,82,0.9)}
+.pg-d.miss{background:rgba(240,170,180,0.5);border:1px solid rgba(226,118,138,0.95)}
 @keyframes pgFade{0%{opacity:.95}25%{opacity:.8}100%{opacity:0}}
-.keyboard{display:flex;flex-direction:column;justify-content:space-between;align-items:center;width:100%;max-width:700px;height:100%}
-.kb-row{display:flex;gap:2px;justify-content:center;width:100%;flex:1;align-items:center}
-/* All character keys: fixed square size driven by longest row.
-   Longest row = BS(1.4) + 12 keys + TAB(1.4) = 14.8 units, gap 2px×13.
-   Key width ≈ (100vw - 16px padding - ~13×2px gap) / 14.8
-   We use a safe value: clamp between 24px and 42px */
+.keyboard{display:flex;flex-direction:column;justify-content:flex-start;align-items:center;
+width:100%;max-width:700px;height:100%;gap:var(--kb-row-gap,3px)}
+.kb-row{display:flex;gap:var(--kb-gap-x,2px);justify-content:center;width:100%;
+flex:0 0 auto;height:var(--key-size,32px);align-items:center}
+/* All character keys: square, sized by kbMetrics() so that the longest row
+   (BS 1.1u + 12 keys + TAB 1.1u + 13 gaps) fits the width exactly. */
 .key{min-width:0;
-  width: clamp(24px, calc((100vw - 16px - 26px) / 14.8), 42px);
-  height: clamp(24px, calc((100vw - 16px - 26px) / 14.8), 42px);
-  flex: 0 0 clamp(24px, calc((100vw - 16px - 26px) / 14.8), 42px);
+  width:var(--key-size,32px);
+  height:var(--key-size,32px);
+  flex:0 0 var(--key-size,32px);
   border-radius:50% 50% 50% 50% / 55% 55% 45% 45%;background:#f5f0e8;
 border:2px solid #999;display:flex;flex-direction:column;align-items:center;
 justify-content:center;cursor:pointer;font-size:12px;
@@ -798,27 +895,25 @@ box-shadow:1px 1px 2px rgba(0,0,0,0.3);transition:background .05s,transform .05s
 .key .ku{font-size:7px;color:#444;line-height:1;margin-bottom:0px}
 .key .kl{font-size:9px;line-height:1;margin-top:1px}
 .key .kl-only{font-size:12px;line-height:1}
-.key.pressed,.key:active{background:#333;color:#fff;transform:translateY(1px);box-shadow:none}
+/* Only .pressed, never :active — the browser's own active state would light up
+   a key that the hit test rejected, i.e. a key that never typed anything. */
+.key.pressed{background:#333;color:#fff;transform:translateY(1px);box-shadow:none}
 .key.pressed .ku,.key.pressed .kl{color:#fff}
 .key.locked{background:#ff6;border-color:#cc0}
 .key.mar-active{background:#fcc;border-color:#f44}
 .key.mar-active .label{color:#c00}
-.sk{border-radius:5px;font-size:9px;width:auto !important;height:calc(clamp(24px, calc((100vw - 16px - 26px) / 14.8), 42px) * 0.8) !important;margin:0 3px;padding-top:4px;padding-bottom:0}
+.sk{border-radius:5px;font-size:9px;width:auto !important;
+height:calc(var(--key-size,32px) * 0.8) !important;margin:0 3px;padding-top:4px;padding-bottom:0}
 .sk .label{text-align:center;line-height:1.1;white-space:nowrap}
-/* Space bar row: pinned to the top of its band and given bottom clearance
-   so it sits clear of the phone's bottom-edge swipe-up gesture zone */
-#keyboard-area .kb-row:last-child .key{margin-top:0}
-.kb-row.space-row{align-items:flex-start;margin-bottom:14px}
-@supports(padding:env(safe-area-inset-bottom)){
-  .kb-row.space-row{margin-bottom:calc(14px + env(safe-area-inset-bottom))}
-}
+/* Space bar: flat and short. Its clearance from the bottom edge is #dead-zone. */
+.kb-row.space-row{height:var(--space-h,22px)}
+.key.spacebar{height:var(--space-h,22px) !important;border-radius:6px;aspect-ratio:auto;
+padding-top:0}
 /* Make keyboard bigger on small screens */
 @media(max-width:600px){
   .keyboard{max-width:100%}
   .key .ku{font-size:7px}.key .kl{font-size:9px}.key .kl-only{font-size:12px}
   .sk{font-size:8px}
-  .kb-row{gap:1px}
-  #keyboard-area{padding:3px 6px 5px}
 }
 @media(max-width:400px){
   .key .ku{font-size:7px}.key .kl{font-size:10px}.key .kl-only{font-size:11px}
