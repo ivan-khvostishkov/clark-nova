@@ -53,7 +53,7 @@ width:2480px;height:3508px}
 <div id="ruler-bottom" class="ruler-wrap"></div>
 </div>
 <div id="nameplate"><span class="np-plate" onclick="document.getElementById('info-popup').style.display='flex'"><span class="np-screw"></span><span class="np-text">Clark Nova</span><span class="np-screw"></span></span></div>
-<div id="info-popup" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:9999;align-items:center;justify-content:center;overflow-y:auto" onclick="this.style.display='none'"><div style="background:#2a2a2a;border:1px solid #555;border-radius:12px;padding:18px 22px;text-align:left;max-width:480px;width:90%;margin:20px auto;color:#ccc;font-size:11px;line-height:1.5;position:relative;user-select:text;-webkit-user-select:text" onclick="event.stopPropagation()"><button onclick="document.getElementById('info-popup').style.display='none'" style="position:absolute;top:10px;right:12px;background:none;border:none;color:#888;font-size:18px;line-height:1;cursor:pointer;padding:2px 6px;border-radius:4px" title="Close">&#x2715;</button><div style="text-align:center;margin-bottom:10px"><div style="font-family:'EB Garamond',Georgia,serif;font-style:italic;font-size:18px;font-weight:700;color:#d8c89c">Clark Nova</div><div style="color:#888;font-size:10px;margin-top:2px">Typewriter by NoSocial.Net and Ivan Khvostishkov</div><div style="margin-top:6px"><a href="mailto:clarknova@nosocial.net" style="color:#5ab4ac;font-size:11px;text-decoration:none">clarknova@nosocial.net</a></div></div><div style="border-top:1px solid #444;padding-top:8px;margin-bottom:8px"><b style="color:#eee">Desktop:</b> Type with keyboard — keys light up. Shift = hold Shift | Lock = Shift+LCtrl | Enter = CR | BS = move left (no erase) | Tab = next stop | RCtrl = margin release | ↑↓ = roll paper | Scroll = zoom | Drag = pan</div><div style="border-top:1px solid #444;padding-top:8px;margin-bottom:8px"><b style="color:#eee">Mobile:</b> Tap keys to type | Pinch = zoom | Drag = pan | Hold Shift + tap key = uppercase | ▲▼ = roll paper<br>Aim for the key centre: a red crosshair marks where you tapped, and the keyboard flashes red when you miss (border, gap or off-centre).</div><div style="border-top:1px solid #444;padding-top:8px;margin-bottom:8px"><b style="color:#eee">Rules:</b> Characters are permanent (ink). BS moves cursor back for overstriking. Bell at col 63. Margin stop at 71 — press MR to continue. Hard stop at 80 (prints in place). Reload = fresh sheet.</div><div style="border-top:1px solid #444;padding-top:8px;margin-bottom:8px"><b style="color:#eee">Pull the sheet:</b><br>Desktop — right-click the paper and choose <i>Save image as…</i><br>Mobile (iOS/Android) — long-press the paper, then tap <i>Save to Photos</i> or <i>Download image</i></div><div style="border-top:1px solid #444;padding-top:8px;margin-bottom:8px"><b style="color:#eee">Insert a page:</b> Feed a previously pulled sheet, a form, or a card to type on top of it. The page must be 2480 × 3508 px (a sheet pulled from Clark Nova) — ±1 px tolerance for rounding.<br><br><input type="file" id="load-bg-input" accept="image/*" style="display:none"></div><div style="text-align:center;border-top:1px solid #444;padding-top:10px"><button onclick="document.getElementById('load-bg-input').click()" style="background:#444;color:#ccc;border:1px solid #666;padding:5px 18px;border-radius:4px;cursor:pointer;font-size:11px">Insert a page…</button><span id="load-bg-status" style="display:block;margin-top:6px;color:#aaa;font-size:10px"></span></div></div></div>
+<div id="info-popup" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:9999;align-items:center;justify-content:center;overflow-y:auto" onclick="this.style.display='none'"><div style="background:#2a2a2a;border:1px solid #555;border-radius:12px;padding:18px 22px;text-align:left;max-width:480px;width:90%;margin:20px auto;color:#ccc;font-size:11px;line-height:1.5;position:relative;user-select:text;-webkit-user-select:text" onclick="event.stopPropagation()"><button onclick="document.getElementById('info-popup').style.display='none'" style="position:absolute;top:10px;right:12px;background:none;border:none;color:#888;font-size:18px;line-height:1;cursor:pointer;padding:2px 6px;border-radius:4px" title="Close">&#x2715;</button><div style="text-align:center;margin-bottom:10px"><div style="font-family:'EB Garamond',Georgia,serif;font-style:italic;font-size:18px;font-weight:700;color:#d8c89c">Clark Nova</div><div style="color:#888;font-size:10px;margin-top:2px">Typewriter by NoSocial.Net and Ivan Khvostishkov</div><div style="margin-top:6px"><a href="mailto:clarknova@nosocial.net" style="color:#5ab4ac;font-size:11px;text-decoration:none">clarknova@nosocial.net</a></div></div><div style="border-top:1px solid #444;padding-top:8px;margin-bottom:8px"><b style="color:#eee">Desktop:</b> Type with keyboard — keys light up. Shift = hold Shift | Lock = Shift+LCtrl | Enter = CR | BS = move left (no erase) | Tab = next stop | RCtrl = margin release | ↑↓ = roll paper | Scroll = zoom | Drag = pan</div><div style="border-top:1px solid #444;padding-top:8px;margin-bottom:8px"><b style="color:#eee">Mobile:</b> Tap keys to type | Pinch = zoom | Drag = pan | Hold Shift + tap key = uppercase | ▲▼ = roll paper</div><div style="border-top:1px solid #444;padding-top:8px;margin-bottom:8px"><b style="color:#eee">Aim:</b> A key only types when the press lands near its centre. A press on the key border, in a gap between keys, or off-centre is a miss and types nothing.<br><label for="guides-toggle" style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;margin-top:6px"><input type="checkbox" id="guides-toggle" style="margin-top:2px;width:15px;height:15px;accent-color:#5ab4ac;flex-shrink:0;cursor:pointer"><span><b id="guides-label" style="color:#eee">Touch guides (off)</b><br>Show where you are actually pressing, to calibrate your aim: a red crosshair marks the exact spot you touched and fades out, and the keyboard flashes red on a miss.</span></label></div><div style="border-top:1px solid #444;padding-top:8px;margin-bottom:8px"><b style="color:#eee">Rules:</b> Characters are permanent (ink). BS moves cursor back for overstriking. Bell at col 63. Margin stop at 71 — press MR to continue. Hard stop at 80 (prints in place). Reload = fresh sheet.</div><div style="border-top:1px solid #444;padding-top:8px;margin-bottom:8px"><b style="color:#eee">Pull the sheet:</b><br>Desktop — right-click the paper and choose <i>Save image as…</i><br>Mobile (iOS/Android) — long-press the paper, then tap <i>Save to Photos</i> or <i>Download image</i></div><div style="border-top:1px solid #444;padding-top:8px;margin-bottom:8px"><b style="color:#eee">Insert a page:</b> Feed a previously pulled sheet, a form, or a card to type on top of it. The page must be 2480 × 3508 px (a sheet pulled from Clark Nova) — ±1 px tolerance for rounding.<br><br><input type="file" id="load-bg-input" accept="image/*" style="display:none"></div><div style="text-align:center;border-top:1px solid #444;padding-top:10px"><button onclick="document.getElementById('load-bg-input').click()" style="background:#444;color:#ccc;border:1px solid #666;padding:5px 18px;border-radius:4px;cursor:pointer;font-size:11px">Insert a page…</button><span id="load-bg-status" style="display:block;margin-top:6px;color:#aaa;font-size:10px"></span></div></div></div>
 <div id="keyboard-area"></div>
 </div>
 <script>
@@ -328,9 +328,22 @@ function hlK(c,on){
   if(c==='ArrowDown'){document.querySelectorAll('.roll-down').forEach(e=>{if(on)e.classList.add('pressed');else e.classList.remove('pressed');});}
 }
 function uSL(){const el=keyElements['ShiftLock'];if(el){if(shiftLocked)el.classList.add('locked');else el.classList.remove('locked');}}
-// === TOUCH ACCURACY: hit test, crosshair guides, miss flash ===
-// A press only counts when it lands near the key centre. Border, gap and
-// outside presses are misses: nothing is typed, the keyboard flashes red.
+// === TOUCH ACCURACY ===
+// Always on: a press only types when it lands near the key centre. Presses on
+// a key border, in a gap between keys, or off-centre are misses that type
+// nothing.
+// The visual feedback for this (crosshair guides + red miss flash) is opt-in
+// from the About dialog and off by default.
+let guidesOn=false;
+const GUIDES_KEY='cn-touch-guides';
+try{guidesOn=localStorage.getItem(GUIDES_KEY)==='1';}catch(e){}
+function setGuides(on){
+  guidesOn=!!on;
+  try{localStorage.setItem(GUIDES_KEY,guidesOn?'1':'0');}catch(e){}
+  const lbl=document.getElementById('guides-label');
+  if(lbl)lbl.textContent='Touch guides ('+(guidesOn?'on':'off')+')';
+  if(!guidesOn)guideLayer.innerHTML='';
+}
 const HIT_ROUND=0.70;   // fraction of the circle radius that is "live"
 const HIT_RECT=0.78;    // fraction of half-width/half-height on block keys
 const HIT_WIDE_X=0.96;  // space bar is long: only the ends are dead
@@ -374,7 +387,9 @@ function flashMiss(){
 keyboardArea.addEventListener('animationend',e=>{
   if(e.target===keyboardArea)keyboardArea.classList.remove('miss');
 });
+// Visual-only: the hit test itself runs in the key handlers regardless.
 function onPadPress(e){
+  if(!guidesOn)return;
   if(e.type==='touchstart')e.preventDefault();
   else if(e.type==='mousedown'&&e.button!==0)return;
   const p=evPoint(e);
@@ -666,6 +681,10 @@ function layout(){
 
 function init(){buildKB();layout();updateCursor();preloadAudio();
   window.addEventListener('resize',()=>{layout();updateCursor();});
+  // Touch guides checkbox in the About dialog (off unless stored on)
+  const cb=document.getElementById('guides-toggle');
+  if(cb){cb.checked=guidesOn;cb.addEventListener('change',()=>setGuides(cb.checked));}
+  setGuides(guidesOn);
   // Enable iOS long-press save: overlay an <img> that updates on long-press
   let longPressTimer=null;
   const pc=document.getElementById('paper-container');
