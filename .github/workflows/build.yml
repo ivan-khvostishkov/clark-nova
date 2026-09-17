@@ -68,7 +68,7 @@ jobs:
           fi
           echo "clean"
 
-      - name: Assemble Amplify deploy archive
+      - name: Assemble Amplify deploy tree
         id: pkg
         run: |
           set -euo pipefail
@@ -76,73 +76,73 @@ jobs:
           # name always matches what clients will see after the deploy.
           version=$(sed -n "s/.*CACHE_NAME[[:space:]]*=[[:space:]]*['\"]\([^'\"]*\)['\"].*/\1/p" "$SITE_DIR/sw.js" | head -1)
           version=${version:-unversioned}
-          zip_name="${version}-${GITHUB_SHA::7}.zip"
 
-          rm -rf dist "$zip_name"
+          rm -rf dist
           mkdir dist
           # Contents of the site dir, not the dir itself: Amplify needs
-          # index.html at the archive root, with no wrapping folder.
+          # index.html at the archive root, with no wrapping folder. The
+          # archive itself is produced by actions/upload-artifact, so the
+          # download is a single zip, not a zip inside a zip.
           cp -R "$SITE_DIR"/. dist/
           rm -rf dist/audio_unused
           find dist -name '.DS_Store' -delete
           find dist -name 'Thumbs.db' -delete
-
-          ( cd dist && zip -r -X "../$zip_name" . -x '.*' '*/.*' )
+          # Dotfiles would be silently dropped by upload-artifact, so refuse
+          # to ship a tree that contains any.
+          if [ -n "$(find dist -name '.*' -print -quit)" ]; then
+            echo "::error::dist contains dot-prefixed entries that would not be uploaded"
+            find dist -name '.*'
+            exit 1
+          fi
 
           {
-            echo "zip_name=$zip_name"
             echo "artifact_name=${version}-${GITHUB_SHA::7}"
             echo "version=$version"
           } >> "$GITHUB_OUTPUT"
 
-      - name: Verify archive layout
+      - name: Verify deploy tree layout
         run: |
           set -euo pipefail
-          zip_name='${{ steps.pkg.outputs.zip_name }}'
-          unzip -l "$zip_name"
-
-          entries=$(unzip -Z1 "$zip_name")
+          ( cd dist && find . | LC_ALL=C sort )
 
           # index.html must sit at the root, not inside a folder.
-          grep -qx 'index.html' <<<"$entries" \
-            || { echo "::error::index.html is not at the archive root"; exit 1; }
-          if grep -qE '^[^/]+/index\.html$' <<<"$entries"; then
+          [ -f dist/index.html ] \
+            || { echo "::error::index.html is not at the root of dist/"; exit 1; }
+          if [ -n "$(find dist -mindepth 2 -name index.html -print -quit)" ]; then
             echo "::error::index.html is nested inside a subdirectory"; exit 1
           fi
-          if grep -qE '^\./' <<<"$entries"; then
-            echo "::error::archive entries carry a ./ prefix"; exit 1
-          fi
 
-          # Nothing dropped, nothing extra.
-          diff <(cd dist && find . -type f | sed 's|^\./||' | LC_ALL=C sort) \
-               <(grep -v '/$' <<<"$entries" | LC_ALL=C sort) \
-            || { echo "::error::archive contents differ from dist/"; exit 1; }
+          # Nothing dropped: every shipped file from the site dir is present.
+          diff <(cd "$SITE_DIR" && find . -type f -not -path './audio_unused/*' \
+                   -not -name '.DS_Store' -not -name 'Thumbs.db' \
+                   | sed 's|^\./||' | LC_ALL=C sort) \
+               <(cd dist && find . -type f | sed 's|^\./||' | LC_ALL=C sort) \
+            || { echo "::error::dist/ contents differ from $SITE_DIR"; exit 1; }
 
-          echo "archive layout OK"
+          echo "deploy tree layout OK"
 
       - name: Summary
         run: |
           set -euo pipefail
-          zip_name='${{ steps.pkg.outputs.zip_name }}'
           {
             echo "### Amplify deploy archive"
             echo
             echo "| | |"
             echo "|---|---|"
-            echo "| Archive | \`$zip_name\` |"
+            echo "| Artifact | \`${{ steps.pkg.outputs.artifact_name }}\` |"
             echo "| Version | \`${{ steps.pkg.outputs.version }}\` |"
-            echo "| Size | $(du -h "$zip_name" | cut -f1) |"
-            echo "| Files | $(unzip -Z1 "$zip_name" | grep -vc '/$') |"
+            echo "| Size | $(du -sh dist | cut -f1) |"
+            echo "| Files | $(find dist -type f | wc -l) |"
             echo
-            echo "Download the artifact, unzip it once to get \`$zip_name\`, then upload"
-            echo "that archive in the Amplify console (manual deploy)."
+            echo "Download the artifact: GitHub serves it as a single zip with"
+            echo "\`index.html\` at the root, which is exactly what the Amplify"
+            echo "console wants for a manual deploy — upload it as downloaded."
           } >> "$GITHUB_STEP_SUMMARY"
 
       - name: Publish archive
         uses: actions/upload-artifact@v4
         with:
           name: ${{ steps.pkg.outputs.artifact_name }}
-          path: ${{ steps.pkg.outputs.zip_name }}
+          path: dist
           if-no-files-found: error
           retention-days: 90
-          compression-level: 0
