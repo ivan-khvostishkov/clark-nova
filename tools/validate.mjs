@@ -236,13 +236,22 @@ for (const reg of allJs.match(/serviceWorker\.register\(\s*'([^']+)'/g) || []) {
 const swPath = path.join(SITE, 'sw.js');
 if (existsSync(swPath)) {
   const sw = readFileSync(swPath, 'utf8');
-  const cacheName = sw.match(/CACHE_NAME\s*=\s*['"]([^'"]+)['"]/)?.[1];
-  if (!cacheName) {
-    err(rel(swPath), 'no CACHE_NAME found - clients would never pick up a new release');
-  } else if (!/^[A-Za-z0-9._-]+$/.test(cacheName)) {
-    err(rel(swPath), `suspicious CACHE_NAME "${cacheName}"`);
+  // CACHE_NAME is built as CACHE_PREFIX + VERSION, so the parts are read
+  // separately and recombined here. VERSION is also what the About dialog
+  // shows, so an unreadable one is a release-blocking error.
+  const version = sw.match(/VERSION\s*=\s*['"]([^'"]+)['"]/)?.[1];
+  const cachePrefix = sw.match(/CACHE_PREFIX\s*=\s*['"]([^'"]+)['"]/)?.[1];
+  if (!version) {
+    err(rel(swPath), 'no VERSION found - clients would never pick up a new release');
+  } else if (!cachePrefix) {
+    err(rel(swPath), 'no CACHE_PREFIX found - cannot derive the cache name');
   } else {
-    console.log(`cache version: ${cacheName}`);
+    const cacheName = cachePrefix + version;
+    if (!/^[A-Za-z0-9._-]+$/.test(cacheName)) {
+      err(rel(swPath), `suspicious CACHE_NAME "${cacheName}"`);
+    } else {
+      console.log(`cache version: ${cacheName}`);
+    }
   }
 
   const assetsBlock = sw.match(/ASSETS\s*=\s*\[([\s\S]*?)\]/)?.[1] || '';

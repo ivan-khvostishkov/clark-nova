@@ -75,8 +75,14 @@ jobs:
         run: |
           set -euo pipefail
           # Version comes from the service worker cache name, so the artifact
-          # name always matches what clients will see after the deploy.
-          version=$(sed -n "s/.*CACHE_NAME[[:space:]]*=[[:space:]]*['\"]\([^'\"]*\)['\"].*/\1/p" "$SITE_DIR/sw.js" | head -1)
+          # name always matches what clients will see after the deploy. sw.js
+          # builds that name as CACHE_PREFIX + VERSION, so read both parts.
+          sw_literal() {
+            sed -n "s/.*$1[[:space:]]*=[[:space:]]*['\"]\([^'\"]*\)['\"].*/\1/p" "$SITE_DIR/sw.js" | head -1
+          }
+          cache_prefix=$(sw_literal CACHE_PREFIX)
+          sw_version=$(sw_literal VERSION)
+          version=${cache_prefix}${sw_version}
           version=${version:-unversioned}
 
           rm -rf dist

@@ -1,4 +1,10 @@
-const CACHE_NAME = 'clark-nova-v531';
+// Single source of the release version. Bump VERSION on every release: it is
+// the cache name suffix, so changing it is what makes clients drop the old
+// bundle. The build workflow and the About dialog both read it back from here,
+// so it must stay a plain quoted literal on one line.
+const VERSION = '532';
+const CACHE_PREFIX = 'clark-nova-v';
+const CACHE_NAME = CACHE_PREFIX + VERSION;
 const ASSETS = [
   '/',
   '/index.html',
@@ -29,6 +35,16 @@ self.addEventListener('activate', event => {
     )
   );
   self.clients.claim();
+});
+
+// The page asks for the running worker's version to show in the About dialog.
+// Answering from here (rather than letting the page re-parse sw.js) means the
+// number shown is the bundle actually serving the app, and it still works
+// offline.
+self.addEventListener('message', event => {
+  if (event.data === 'version' && event.ports[0]) {
+    event.ports[0].postMessage(VERSION);
+  }
 });
 
 self.addEventListener('fetch', event => {
