@@ -29,8 +29,10 @@ jobs:
       - name: Check out
         uses: actions/checkout@v5
 
-      # v5 action releases run on the runner's Node 24; the v4 line still
-      # declared the deprecated Node 20 runtime and warned on every build.
+      # setup-node v5 declares the Node 24 runtime; its v4 line still declared
+      # the deprecated Node 20 one and warned on every build. Runtime support is
+      # per action, not per major number, so check `runs.using` in each action's
+      # action.yml rather than assuming a version matches this one.
       - name: Set up Node
         uses: actions/setup-node@v5
         with:
@@ -147,8 +149,12 @@ jobs:
             echo "console wants for a manual deploy — upload it as downloaded."
           } >> "$GITHUB_STEP_SUMMARY"
 
+      # v5 of this action still declared the deprecated Node 20 runtime, so the
+      # runner forced it onto Node 24 and warned on every build; v6 was the
+      # release that switched to Node 24 properly. v7 only adds an `archive`
+      # input (default true), so the zip behaviour relied on below is unchanged.
       - name: Publish archive
-        uses: actions/upload-artifact@v5
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ steps.pkg.outputs.artifact_name }}
           path: dist
