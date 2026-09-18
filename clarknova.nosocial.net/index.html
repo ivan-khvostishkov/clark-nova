@@ -243,7 +243,7 @@ function doTab(){
 }
 function doBackspace(){if(cursorCol>1){cursorCol--;playSound(SOUND_BACKSPACE);updateCursor();panToCursor();}}
 function doCR(){
-  // CR always advances to the next full integer row (snaps out of half-steps)
+  // CR always advances to the next full integer row (snaps out of quarter-steps)
   const nextRow=Math.floor(cursorRow)+1;
   if(nextRow>ROWS)return;
   cursorRow=nextRow;cursorCol=INITIAL_COL;marginReleased=false;
@@ -252,27 +252,17 @@ function doCR(){
 function doMarRel(){
   if(cursorCol>RIGHT_MARGIN&&!marginReleased){marginReleased=true;playMarRel();updateCursor();}
 }
+// Quarter-line roll step (0.25 is exact in binary float, so no drift accumulates)
+const ROLL_STEP=0.25;
 function doUp(){
-  // Half-step roll: integer N → N-0.5, half-step N-0.5 → N-1
-  const isHalf=(cursorRow%1!==0);
-  if(isHalf){
-    const next=Math.floor(cursorRow);
-    if(next>=1){cursorRow=next;playRoll();updateCursor();panToCursor();}
-  }else{
-    const next=cursorRow-0.5;
-    if(next>=1){cursorRow=next;playRoll();updateCursor();panToCursor();}
-  }
+  // Quarter-step roll: snap onto the quarter grid, then move one quarter up
+  const next=Math.ceil(cursorRow/ROLL_STEP-1)*ROLL_STEP;
+  if(next>=1){cursorRow=next;playRoll();updateCursor();panToCursor();}
 }
 function doDown(){
-  // Half-step roll: integer N → N+0.5, half-step N+0.5 → N+1
-  const isHalf=(cursorRow%1!==0);
-  if(isHalf){
-    const next=Math.ceil(cursorRow);
-    if(next<=ROWS){cursorRow=next;playRoll();updateCursor();panToCursor();}
-  }else{
-    const next=cursorRow+0.5;
-    if(next<=ROWS){cursorRow=next;playRoll();updateCursor();panToCursor();}
-  }
+  // Quarter-step roll: snap onto the quarter grid, then move one quarter down
+  const next=Math.floor(cursorRow/ROLL_STEP+1)*ROLL_STEP;
+  if(next<=ROWS){cursorRow=next;playRoll();updateCursor();panToCursor();}
 }
 
 // === KEYBOARD INPUT ===
