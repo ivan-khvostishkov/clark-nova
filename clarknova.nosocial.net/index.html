@@ -40,6 +40,27 @@ width:2480px;height:3508px}
 .roll-up{border-bottom:12px solid #e8e4dc;border-top:none}
 .roll-down{border-top:12px solid #e8e4dc;border-bottom:none}
 .roll-btn:active,.roll-btn.pressed{filter:brightness(0.7)}
+/* Printing: the sheet is the document, so the print view drops the whole machine
+   — pad, rulers, roll knobs, nameplate, blinking cursor — and lays the canvas
+   out as one plain block scaled to the page. The !important rules are not
+   decoration: layout() writes pixel heights and applyView() writes the pan/zoom
+   transform as inline styles, which no print rule could otherwise outrank, and
+   the popup carries an inline display:flex while it is open. */
+@media print{
+  /* 2480x3508 is A4 at 300dpi, so the sheet maps 1:1 onto the page. The 5mm
+     margin is what keeps a rounding error from spilling a blank second page. */
+  @page{size:A4 portrait;margin:5mm}
+  html,body{height:auto;overflow:visible;background:#fff}
+  #app{display:block;height:auto}
+  #keyboard-area,#nameplate,#dead-zone,#press-guides,#info-popup,
+  .ruler-wrap,.roll-col,#cursor{display:none !important}
+  #canvas-area{height:auto !important;overflow:visible;background:#fff;flex:none}
+  #vp-row{display:block;overflow:visible;flex:none}
+  #paper-viewport{height:auto !important;overflow:visible;flex:none;cursor:auto}
+  #paper-inner{position:static;transform:none !important}
+  #paper-container{width:100%;height:auto;box-shadow:none}
+  #typing-canvas{width:100%;height:auto}
+}
 </style>
 </head>
 <body>
