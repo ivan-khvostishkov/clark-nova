@@ -2,7 +2,7 @@
 // the cache name suffix, so changing it is what makes clients drop the old
 // bundle. The build workflow and the About dialog both read it back from here,
 // so it must stay a plain quoted literal on one line.
-const VERSION = '533';
+const VERSION = '534';
 const CACHE_PREFIX = 'clark-nova-v';
 const CACHE_NAME = CACHE_PREFIX + VERSION;
 const ASSETS = [

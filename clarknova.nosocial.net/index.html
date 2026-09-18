@@ -72,6 +72,9 @@ const CANVAS_W=2480,CANVAS_H=3508;
 const LEFT_MARGIN=11,RIGHT_MARGIN=70,HARD_RIGHT=80,BELL_COL=63;
 const INITIAL_ROW=5,INITIAL_COL=11;
 const RULER_H=28,ROLL_W=28;
+// Small screens only fit ~45 of the 80 columns, so the view opens scrolled to
+// this column rather than to the sheet's left edge.
+const VIEW_START_COL=3;
 
 let cursorCol=INITIAL_COL,cursorRow=INITIAL_ROW;
 let shiftLocked=false,shiftHeld=false,marginReleased=false;
@@ -781,8 +784,11 @@ function layout(){
   // Position paper: on small screens center cursor, on large center paper
   const pw=CANVAS_W*viewScale;
   if(smallScreen){
-    // Position so left margin (col 1) is near left edge, cursor visible
-    viewX=Math.round(10);
+    // Scroll two columns past the sheet edge instead of pinning col 1 to the
+    // left of the screen: only ~45 columns fit at this zoom, and starting at
+    // col 1 pushed the home column (11) too far right to type under. Column 3
+    // is what now lines up with the left edge.
+    viewX=Math.round(-(VIEW_START_COL-1)*CELL_W*viewScale);
     const cursorScreenY=(GRID_TOP+(INITIAL_ROW-1)*CELL_H)*viewScale;
     viewY=Math.round(20-cursorScreenY+vpH2*0.1);
   } else {
