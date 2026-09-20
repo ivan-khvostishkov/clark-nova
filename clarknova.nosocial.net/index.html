@@ -74,12 +74,27 @@ width:2480px;height:3508px}
      so one column is 1.25% and the text can be set on the typewriter's own grid
      rather than eyeballed against the page. */
   #print-footer{display:block;position:absolute;top:calc(100% + 2.5mm);left:0;right:0;
-    height:3mm;font-family:'Courier Prime','Courier New',monospace;font-size:2.3mm;
-    line-height:3mm;white-space:nowrap;
-    /* Semi-visible: the ink colour of the type (INK_RGB) at low opacity, so the
-       credit reads as a faint impression rather than a second headline. The
-       colour-adjust hints keep a printer driver from "helpfully" darkening it. */
-    color:rgba(67,71,82,0.42);print-color-adjust:exact;-webkit-print-color-adjust:exact}
+    height:3mm;font-size:6.6pt;line-height:3mm;white-space:nowrap;
+    /* Courier New, i.e. an installed font, and deliberately NOT the page's
+       'Courier Prime' webfont. A GDI print driver (Adobe PDF and friends) gets a
+       webfont as an in-memory font and re-subsets it with a private encoding and
+       no ToUnicode map, so Acrobat falls back to numbering the glyphs into the
+       plane-16 private use area: the credit printed correctly but copied out as
+       U+100000 gibberish, and the bad subset metrics blew up the text cursor.
+       An installed font carries its own cmap through the driver instead. Both
+       faces advance at 0.6em, so the column alignment below is unaffected. */
+    font-family:'Courier New',Courier,monospace;
+    /* Semi-visible: the ink colour of the type (INK_RGB) mixed 42% into white, so
+       the credit reads as a faint impression rather than a second headline.
+       It is this flat colour and NOT rgba(67,71,82,0.42) on purpose, even though
+       the two are identical on white paper. Any transparency in a print layer
+       makes the browser hand the driver a rasterised band instead of text, and
+       GDI printers like Adobe PDF then bake that band at their own resolution
+       (~353x371dpi): 6.6pt glyphs came out as a 2565x36 bitmap, pixelated and
+       visibly bouncing off the baseline. Opaque colour keeps it vector text at
+       the printer's full resolution. The colour-adjust hints keep a driver from
+       "helpfully" darkening it back to a legible grey. */
+    color:#b0b2b6;print-color-adjust:exact;-webkit-print-color-adjust:exact}
   /* Left credit opens at column 3 (2 columns in = 2.5%); the right one closes at
      the end of column 78, the mirror inset, which reads as flush with the type. */
   #print-footer .pf-l{position:absolute;left:2.5%}
