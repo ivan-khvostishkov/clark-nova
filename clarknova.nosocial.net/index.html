@@ -46,6 +46,9 @@ width:2480px;height:3508px}
    decoration: layout() writes pixel heights and applyView() writes the pan/zoom
    transform as inline styles, which no print rule could otherwise outrank, and
    the popup carries an inline display:flex while it is open. */
+/* The print footer is part of the printout, not of the sheet: it is never drawn
+   on the canvas, so a pulled or re-inserted page carries no trace of it. */
+#print-footer{display:none}
 @media print{
   /* 2480x3508 is A4 at 300dpi, so the sheet maps 1:1 onto the page. The 5mm
      margin is what keeps a rounding error from spilling a blank second page. */
@@ -58,8 +61,29 @@ width:2480px;height:3508px}
   #vp-row{display:block;overflow:visible;flex:none}
   #paper-viewport{height:auto !important;overflow:visible;flex:none;cursor:auto}
   #paper-inner{position:static;transform:none !important}
-  #paper-container{width:100%;height:auto;box-shadow:none}
+  /* 196mm, not the full 200mm of printable width: the sheet is then 277mm tall
+     (196 * 3508/2480) out of the 287mm available, and the 10mm left over is what
+     the footer below it hangs in. Stretching the sheet to the full width would
+     make it 283mm tall and leave no room to print anything under it. */
+  #paper-container{width:196mm;height:auto;margin:0 auto;box-shadow:none;
+    border:1px solid #c0bcb4;print-color-adjust:exact;-webkit-print-color-adjust:exact}
   #typing-canvas{width:100%;height:auto}
+  /* Footer: out of flow under the framed sheet, so it cannot push the sheet's
+     own height around. Being a child of #paper-container is what makes the
+     percentage offsets below mean columns — 100% is exactly the 80-column sheet,
+     so one column is 1.25% and the text can be set on the typewriter's own grid
+     rather than eyeballed against the page. */
+  #print-footer{display:block;position:absolute;top:calc(100% + 2.5mm);left:0;right:0;
+    height:3mm;font-family:'Courier Prime','Courier New',monospace;font-size:2.3mm;
+    line-height:3mm;white-space:nowrap;
+    /* Semi-visible: the ink colour of the type (INK_RGB) at low opacity, so the
+       credit reads as a faint impression rather than a second headline. The
+       colour-adjust hints keep a printer driver from "helpfully" darkening it. */
+    color:rgba(67,71,82,0.42);print-color-adjust:exact;-webkit-print-color-adjust:exact}
+  /* Left credit opens at column 3 (2 columns in = 2.5%); the right one closes at
+     the end of column 78, the mirror inset, which reads as flush with the type. */
+  #print-footer .pf-l{position:absolute;left:2.5%}
+  #print-footer .pf-r{position:absolute;right:2.5%}
 }
 </style>
 </head>
@@ -72,6 +96,7 @@ width:2480px;height:3508px}
 <div id="paper-viewport"><div id="paper-inner"><div id="paper-container">
 <canvas id="typing-canvas" width="2480" height="3508"></canvas>
 <div id="cursor"></div>
+<div id="print-footer" aria-hidden="true"><span class="pf-l">ClarkNova TypeWriter by NoSocial.Net</span><span class="pf-r">clarknova.nosocial.net</span></div>
 </div></div></div>
 <div class="roll-col"><div class="roll-btn roll-up" data-dir="up"></div><div class="roll-btn roll-down" data-dir="down"></div></div>
 </div>
