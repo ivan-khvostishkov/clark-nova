@@ -1,0 +1,4 @@
+# Puts a "Sponsor" button on the repository page. GitHub only reads this file
+# from the default branch, and only the accounts listed here that actually have
+# GitHub Sponsors enabled are shown.
+github: ivan-khvostishkov
