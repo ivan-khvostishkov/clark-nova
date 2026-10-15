@@ -95,6 +95,8 @@ knobs still sit between them.
 - **Pull the page out** (bottom lever) — save the sheet as a 2480 × 3508 PNG. A
   page that was fed in is offered back under the name it came in under, so a form
   goes back where it came from.
+- Paper goes in and out as an image. To turn a PDF into one, or a typed sheet back
+  into a PDF, use **[PDFhero](https://pdfhero.nosocial.net/)**.
 - **Reload** for a fresh sheet.
 - **Print** — A4 portrait, the sheet at 300 dpi inside a hairline frame, with a
   faint credit line below it. See [Printing](#printing) for the one driver quirk
@@ -188,7 +190,9 @@ bundle.
 ## Credits
 
 Built by [NoSocial.Net](https://nosocial.net) and Ivan Khvostishkov —
-[clarknova@nosocial.net](mailto:clarknova@nosocial.net).
+[clarknova@nosocial.net](mailto:clarknova@nosocial.net). If the machine is useful
+to you, [sponsor it](https://github.com/sponsors/ivan-khvostishkov) — the Donate
+button in the About dialog points at the same place.
 
 Type set in [Special Elite](https://fonts.google.com/specimen/Special+Elite),
 with [Courier Prime](https://fonts.google.com/specimen/Courier+Prime) and

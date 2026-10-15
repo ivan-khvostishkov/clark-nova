@@ -22,6 +22,37 @@ font-family:'Courier Prime','Courier New',monospace;touch-action:none;user-selec
    monospace body font. Sans-serif is narrower at the same size, which wraps
    fewer lines and is most of what keeps the dialog short enough for a phone. */
 #info-popup{font-family:system-ui,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif}
+.help-box{background:#2a2a2a;border:1px solid #555;border-radius:12px;padding:14px 16px;
+text-align:left;max-width:480px;width:90%;margin:auto;color:#ccc;font-size:10px;
+line-height:1.45;position:relative;user-select:text;-webkit-user-select:text}
+.help-x{position:absolute;top:10px;right:12px;background:none;border:none;color:#888;
+font-size:16px;line-height:1;cursor:pointer;padding:2px 6px;border-radius:4px}
+.help-head{text-align:center;margin-bottom:10px}
+.help-title{font-family:'EB Garamond',Georgia,serif;font-style:italic;font-size:16px;
+font-weight:700;color:#d8c89c}
+.help-sub{color:#888;font-size:9px;margin-top:2px}
+.help-link{color:#5ab4ac;text-decoration:none}
+#app-version{color:#777;font-size:9px;margin-top:6px}
+/* Tabs. The dialog had grown past a phone screen as one scroll, so it is split
+   three ways: how to type, how aiming works, how paper gets in and out. */
+#help-tabs{display:flex;gap:4px;margin-bottom:10px}
+.help-tab{flex:1;min-width:0;background:#333;color:#aaa;border:1px solid #484848;
+border-radius:5px;padding:5px 4px;font:inherit;font-size:10px;cursor:pointer;
+-webkit-tap-highlight-color:transparent}
+.help-tab.on{background:#4a4a4a;color:#eee;border-color:#6a6a6a}
+.help-pane{display:none}
+.help-pane.on{display:block}
+/* The rule above a block and the emphasis inside it were repeated inline on every
+   section of the old dialog; they are the same two rules for all of them. */
+.help-sec{border-top:1px solid #444;padding-top:8px;margin-bottom:8px}
+.help-sec b{color:#eee}
+.help-blk{display:block;margin-top:6px}
+.help-foot{border-top:1px solid #444;padding-top:10px;text-align:center}
+.help-donate{display:inline-block;background:#3a2f35;color:#eac4d5;
+border:1px solid #7a5768;border-radius:4px;padding:5px 18px;font-size:10px;
+text-decoration:none}
+.hd-heart{color:#e06a9c}
+.help-foot-note{color:#777;font-size:9px;margin-top:6px}
 #canvas-area{flex:1;overflow:hidden;display:flex;flex-direction:column;align-items:stretch;background:#2a2a2a;position:relative}
 #vp-row{flex:1;display:flex;align-items:stretch;overflow:hidden;position:relative}
 #paper-viewport{flex:1;overflow:hidden;position:relative;cursor:grab}
@@ -172,7 +203,37 @@ pointer-events:none;opacity:0;transition:opacity .25s;z-index:50}
 <!-- Opened by the typist on the right roll bar. -->
 <input type="file" id="load-txt-input" accept=".txt,.text,.md,text/plain" style="display:none">
 <div id="nameplate"><span class="np-plate" onclick="document.getElementById('info-popup').style.display='flex'"><span class="np-screw"></span><span class="np-text">Clark Nova</span><span class="np-screw"></span></span></div>
-<div id="info-popup" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:9999;align-items:flex-start;justify-content:center;overflow-y:auto;padding:16px 0" onclick="this.style.display='none'"><div style="background:#2a2a2a;border:1px solid #555;border-radius:12px;padding:14px 16px;text-align:left;max-width:480px;width:90%;margin:auto;color:#ccc;font-size:10px;line-height:1.45;position:relative;user-select:text;-webkit-user-select:text" onclick="event.stopPropagation()"><button onclick="document.getElementById('info-popup').style.display='none'" style="position:absolute;top:10px;right:12px;background:none;border:none;color:#888;font-size:16px;line-height:1;cursor:pointer;padding:2px 6px;border-radius:4px" title="Close">&#x2715;</button><div style="text-align:center;margin-bottom:10px"><div style="font-family:'EB Garamond',Georgia,serif;font-style:italic;font-size:16px;font-weight:700;color:#d8c89c">Clark Nova</div><div style="color:#888;font-size:9px;margin-top:2px">Typewriter by NoSocial.Net and Ivan Khvostishkov</div><div style="margin-top:6px"><a href="mailto:clarknova@nosocial.net" style="color:#5ab4ac;font-size:10px;text-decoration:none">clarknova@nosocial.net</a></div><div id="app-version" style="color:#777;font-size:9px;margin-top:6px"></div></div><div style="border-top:1px solid #444;padding-top:8px;margin-bottom:8px"><b style="color:#eee">Desktop:</b> Type with keyboard — keys light up. Shift = hold Shift | Lock = Shift+LCtrl | Enter = CR | BS = move left (no erase) | Tab = next stop | RCtrl = margin release | ↑↓ = roll paper | Scroll = zoom | Drag = pan</div><div style="border-top:1px solid #444;padding-top:8px;margin-bottom:8px"><b style="color:#eee">Mobile:</b> Tap keys to type | Pinch = zoom | Drag = pan | Hold Shift + tap key = uppercase | ▲▼ = roll paper</div><div style="border-top:1px solid #444;padding-top:8px;margin-bottom:8px"><b style="color:#eee">Aim:</b> A key only types when the press lands near its centre. A press on the key border, in a gap between keys, or off-centre is a miss and types nothing.<br>After a miss the keyboard pauses for a second, and every further tap restarts that pause — stop, wait, then carry on.<br><span style="display:block;margin-top:6px"><b style="color:#eee">Touch guides</b><br>A small crosshair marks the exact spot you touched, so you can calibrate your aim: teal on a hit, pink on a miss. On a miss the pad turns pink and fades back to teal; taps during the pause only restart that fade.</span></div><div style="border-top:1px solid #444;padding-top:8px;margin-bottom:8px"><b style="color:#eee">Rules:</b> Characters are permanent (ink). BS moves cursor back for overstriking. Bell at col 63. Margin stop at 71 — press MR to continue. Hard stop at 80 (prints in place). Reload = fresh sheet.</div><div style="border-top:1px solid #444;padding-top:8px;margin-bottom:8px"><b style="color:#eee">Paper feed:</b> The two levers at the ends of the left roll bar are the paper path — the knobs between them still roll the platen.<br><span style="display:block;margin-top:6px"><b style="color:#eee">Top lever — pull a page in.</b> Feed a previously pulled sheet, a form, or a card to type on top of it. The page must be 2480 × 3508 px (a sheet pulled from Clark Nova) — ±1 px tolerance for rounding.</span><span style="display:block;margin-top:6px"><b style="color:#eee">Bottom lever — pull the page out.</b> Saves the sheet as a 2480 × 3508 PNG. If you pulled a page in, the name it came in under is offered again, so the sheet goes back where it came from.</span><span style="display:block;margin-top:6px">Reload for a fresh sheet.</span></div><div style="border-top:1px solid #444;padding-top:8px;margin-bottom:8px"><b style="color:#eee">The typist:</b> The robot at the top of the right roll bar types a <i>.txt</i> file out on the machine for you — same strikes, same sounds, same keys lighting up, so the file comes off the platen as real typescript.<br>It keeps the carriage honest: lines wrap at the right margin, leading blanks are typed as TAB and spaces, and characters the machine has no slug for (brackets, dashes, smart quotes) are struck as the nearest thing it carries.<br>The keyboard is locked while it works and the pad turns grey. <b style="color:#eee">Press any key to take it back</b> — that key stops the typist and types nothing. At the bottom of the page it stops on its own.</div></div></div>
+<div id="info-popup" style="display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:9999;align-items:flex-start;justify-content:center;overflow-y:auto;padding:16px 0" onclick="this.style.display='none'">
+<div class="help-box" onclick="event.stopPropagation()">
+<button class="help-x" onclick="document.getElementById('info-popup').style.display='none'" title="Close">&#x2715;</button>
+<div class="help-head">
+<div class="help-title">Clark Nova</div>
+<div class="help-sub">Typewriter by NoSocial.Net and Ivan Khvostishkov</div>
+<div><a class="help-link" href="mailto:clarknova@nosocial.net">clarknova@nosocial.net</a></div>
+<div id="app-version"></div>
+</div>
+<div id="help-tabs" role="tablist">
+<button class="help-tab on" data-tab="typing" role="tab">Typing</button><button class="help-tab" data-tab="aim" role="tab">Aim</button><button class="help-tab" data-tab="paper" role="tab">Paper</button>
+</div>
+<div class="help-pane on" data-pane="typing">
+<div class="help-sec"><b>Desktop:</b> Type with keyboard &mdash; keys light up. Shift = hold Shift | Lock = Shift+LCtrl | Enter = CR | BS = move left (no erase) | Tab = next stop | RCtrl = margin release | &uarr;&darr; = roll paper | Scroll = zoom | Drag = pan</div>
+<div class="help-sec"><b>Mobile:</b> Tap keys to type | Pinch = zoom | Drag = pan | Hold Shift + tap key = uppercase | &#9650;&#9660; = roll paper</div>
+<div class="help-sec"><b>Rules:</b> Characters are permanent (ink). BS moves cursor back for overstriking. Bell at col 63. Margin stop at 71 &mdash; press MR to continue. Hard stop at 80 (prints in place). Reload = fresh sheet.</div>
+</div>
+<div class="help-pane" data-pane="aim">
+<div class="help-sec"><b>Aim:</b> A key only types when the press lands near its centre. A press on the key border, in a gap between keys, or off-centre is a miss and types nothing.<br>After a miss the keyboard pauses for a second, and every further tap restarts that pause &mdash; stop, wait, then carry on.</div>
+<div class="help-sec"><b>Touch guides:</b> A small crosshair marks the exact spot you touched, so you can calibrate your aim: teal on a hit, pink on a miss. On a miss the pad turns pink and fades back to teal; taps during the pause only restart that fade.</div>
+</div>
+<div class="help-pane" data-pane="paper">
+<div class="help-sec"><b>Paper feed:</b> The two levers at the ends of the left roll bar are the paper path &mdash; the knobs between them still roll the platen.<span class="help-blk"><b>Top lever &mdash; pull a page in.</b> Feed a previously pulled sheet, a form, or a card to type on top of it. The page must be 2480 &times; 3508 px (a sheet pulled from Clark Nova) &mdash; &plusmn;1 px tolerance for rounding.</span><span class="help-blk"><b>Bottom lever &mdash; pull the page out.</b> Saves the sheet as a 2480 &times; 3508 PNG. If you pulled a page in, the name it came in under is offered again, so the sheet goes back where it came from.</span><span class="help-blk">Paper goes in and out as an image. To turn a PDF into one, or a typed sheet back into a PDF, use <a class="help-link" href="https://pdfhero.nosocial.net/" target="_blank" rel="noopener">PDFhero</a> &mdash; pdfhero.nosocial.net</span><span class="help-blk">Reload for a fresh sheet.</span></div>
+<div class="help-sec"><b>The typist:</b> The robot at the top of the right roll bar types a <i>.txt</i> file out on the machine for you &mdash; same strikes, same sounds, same keys lighting up, so the file comes off the platen as real typescript.<br>It keeps the carriage honest: lines wrap at the right margin, leading blanks are typed as TAB and spaces, and characters the machine has no slug for (brackets, dashes, smart quotes) are struck as the nearest thing it carries.<br>The keyboard is locked while it works and the pad turns grey. <b>Press any key to take it back</b> &mdash; that key stops the typist and types nothing. At the bottom of the page it stops on its own.</div>
+</div>
+<div class="help-foot">
+<a class="help-donate" href="https://github.com/sponsors/ivan-khvostishkov" target="_blank" rel="noopener"><span class="hd-heart">&hearts;</span> Donate</a>
+<div class="help-foot-note">Keeps the machine running and hosted.</div>
+</div>
+</div>
+</div>
 <div id="keyboard-area"></div>
 <!-- Inert strip along the very bottom edge: it belongs to no key and has no
      handlers, so the swipe that switches apps on a phone cannot land on the
@@ -1363,6 +1424,21 @@ document.addEventListener('change',function(e){
   reader.readAsText(file.slice(0,1<<20));
 });
 bindLever('robot',robotPress);
+
+// === ABOUT DIALOG TABS ===
+// One listener on the tab strip rather than a handler per tab, so the markup
+// carries only which pane each tab names.
+document.getElementById('help-tabs').addEventListener('click',function(e){
+  const tab=e.target&&e.target.closest?e.target.closest('.help-tab'):null;
+  if(!tab)return;
+  const name=tab.dataset.tab;
+  document.querySelectorAll('.help-tab').forEach(t=>{
+    if(t===tab)t.classList.add('on');else t.classList.remove('on');
+  });
+  document.querySelectorAll('.help-pane').forEach(p=>{
+    if(p.dataset.pane===name)p.classList.add('on');else p.classList.remove('on');
+  });
+});
 })();
 // Register service worker
 if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(()=>{});}
