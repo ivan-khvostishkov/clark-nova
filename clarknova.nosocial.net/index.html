@@ -75,7 +75,11 @@ position:relative;overflow:hidden}
 /* Roll-bar controls: pinned to the ends of a roll bar and out of its flex flow,
    so the platen knobs stay centred between them however tall the bar is. */
 .roll-tool{position:absolute;left:0;width:100%;display:flex;justify-content:center;
-cursor:pointer;-webkit-tap-highlight-color:transparent}
+cursor:pointer;-webkit-tap-highlight-color:transparent;
+/* Ink for the paper levers, which draw in currentColor. A step down from the
+   #e8e4dc knob triangles on purpose: the knobs are the control you reach for
+   while typing, so the levers at the ends of the bar must not out-shout them. */
+color:#a7a29a}
 .tool-top{top:6px}
 .tool-bottom{bottom:6px}
 .roll-tool svg{display:block;width:20px;height:24px;transition:transform .06s}
@@ -170,11 +174,11 @@ pointer-events:none;opacity:0;transition:opacity .25s;z-index:50}
      platen at the top and leaves below it. -->
 <div class="roll-col">
 <div class="roll-tool tool-top" id="paper-in" role="button" tabindex="-1" aria-label="Pull a page in" title="Pull a page in — feed a 2480 × 3508 sheet to type on">
-<svg viewBox="0 0 20 24" aria-hidden="true"><rect x="4" y="0.8" width="12" height="8" rx="1" fill="#e8e4dc" stroke="#8d8880" stroke-width="0.8"/><path d="M10 10.4V16M6.4 13 10 17.2 13.6 13" fill="none" stroke="#e8e4dc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><rect x="0.5" y="19.8" width="19" height="3.2" rx="1.6" fill="#8d8880"/></svg>
+<svg viewBox="0 0 20 24" aria-hidden="true"><rect x="4" y="0.8" width="12" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1"/><path d="M10 10.4V16M6.4 13 10 17.2 13.6 13" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><rect x="0.5" y="19.8" width="19" height="3.2" rx="1.6" fill="currentColor" opacity="0.72"/></svg>
 </div>
 <div class="roll-btn roll-up" data-dir="up"></div><div class="roll-btn roll-down" data-dir="down"></div>
 <div class="roll-tool tool-bottom" id="paper-out" role="button" tabindex="-1" aria-label="Pull the page out" title="Pull the page out — save the sheet as a PNG">
-<svg viewBox="0 0 20 24" aria-hidden="true"><rect x="0.5" y="0.8" width="19" height="3.2" rx="1.6" fill="#8d8880"/><path d="M10 6.8V12.4M6.4 9.4 10 13.6 13.6 9.4" fill="none" stroke="#e8e4dc" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><rect x="4" y="15.2" width="12" height="8" rx="1" fill="#e8e4dc" stroke="#8d8880" stroke-width="0.8"/></svg>
+<svg viewBox="0 0 20 24" aria-hidden="true"><rect x="0.5" y="0.8" width="19" height="3.2" rx="1.6" fill="currentColor" opacity="0.72"/><path d="M10 6.8V12.4M6.4 9.4 10 13.6 13.6 9.4" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><rect x="4" y="15.2" width="12" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1"/></svg>
 </div>
 </div>
 <div id="paper-viewport"><div id="paper-inner"><div id="paper-container">
@@ -259,7 +263,6 @@ const VIEW_START_COL=3;
 let cursorCol=INITIAL_COL,cursorRow=INITIAL_ROW;
 let shiftLocked=false,shiftHeld=false,marginReleased=false;
 let shiftJustLocked=false;
-let audioCtx=null;
 let fontsReady=false;
 
 // View state
@@ -292,20 +295,115 @@ const SOUND_SHIFT = 'audio/COMType_Typewriter%20Shit%20Press%20Release%2036%20DP
 const SOUND_SHIFT_RELEASE = 'audio/COMType_Typewriter%20Shit%20Press%20Release%2037%20DPA4060_PMSFX_CWT.wav';
 const SOUND_ROLL = 'audio/COMType_Typewritter%20Roller%20Knob%20Movement%20208%20DPA4060_PMSFX_CWT.wav';
 const SOUND_LEVER = 'audio/COMType_Typewritter%20Lever%20182%20DPA4060_PMSFX_CWT.wav';
-// Preload sounds immediately
-let firstInteraction=true;
-function preloadAudio(){
-  [SOUND_STRIKE,SOUND_SPACE,SOUND_BACKSPACE,SOUND_CR,SOUND_BELL,SOUND_SHIFT,SOUND_SHIFT_RELEASE,SOUND_ROLL,SOUND_LEVER].forEach(path=>{
-    const a=new Audio(path);a.preload='auto';a.load();
+const SOUND_PATHS=[SOUND_STRIKE,SOUND_SPACE,SOUND_BACKSPACE,SOUND_CR,SOUND_BELL,
+  SOUND_SHIFT,SOUND_SHIFT_RELEASE,SOUND_ROLL,SOUND_LEVER];
+
+// Every sample is fetched once, decoded once, and then replayed from memory
+// through one AudioContext that stays open for the life of the page.
+//
+// The obvious way — `new Audio(path).play()` per strike — is what made the
+// machine stutter in a browser, badly on iOS: each element opens an audio
+// session, decodes the file again, and tears the session down when it ends, so
+// iOS flashed its sound indicator on and off with every key and the decode and
+// session churn stalled the main thread. Held keys went missing and then
+// arrived in a batch, which the typist made plain at full speed. A buffer node
+// off an already-running context costs nothing by comparison and can overlap
+// itself, so a fast passage layers strikes the way the real machine does.
+const AudioCtor=window.AudioContext||window.webkitAudioContext;
+let audioCtx=null;
+let audioOut=null;                 // gain node every voice connects through
+const sampleBuffers=new Map();     // path -> decoded AudioBuffer, ready to play
+const sampleBytes=new Map();       // path -> fetched bytes awaiting a context
+
+function loadSamples(){
+  SOUND_PATHS.forEach(path=>{
+    if(sampleBuffers.has(path)||sampleBytes.has(path))return;
+    // Goes through the service worker cache, so this is a disk read offline.
+    fetch(path).then(r=>r.ok?r.arrayBuffer():Promise.reject()).then(bytes=>{
+      sampleBytes.set(path,bytes);
+      decodeSamples();
+    }).catch(()=>{});
   });
 }
-preloadAudio(); // Start loading immediately
+
+// Decoding needs a context, and bytes can arrive before there is one, so this
+// drains whatever is waiting and is safe to call again at any time.
+function decodeSamples(){
+  if(!audioCtx)return;
+  sampleBytes.forEach((bytes,path)=>{
+    sampleBytes.delete(path);
+    // decodeAudioData detaches the buffer it is handed, so it gets a copy and
+    // the original stays intact for a retry on the next context.
+    audioCtx.decodeAudioData(bytes.slice(0),
+      buf=>{sampleBuffers.set(path,buf);},
+      ()=>{sampleBytes.set(path,bytes);});
+  });
+}
+
+// Opens the context, or picks it back up. Browsers start a context suspended
+// until a gesture, and iOS also drops it to 'interrupted' after a call or a
+// spell in the background, so the state is checked on the way to every sound
+// rather than once at the start.
+function ensureAudio(){
+  if(!AudioCtor)return null;
+  if(!audioCtx){
+    try{audioCtx=new AudioCtor();}catch(e){return null;}
+    audioOut=audioCtx.createGain();
+    audioOut.gain.value=1;
+    audioOut.connect(audioCtx.destination);
+    decodeSamples();
+  }
+  if(audioCtx.state!=='running')audioCtx.resume().catch(()=>{});
+  return audioCtx;
+}
+
 function playSound(path){
+  const ctx=ensureAudio();
+  if(!ctx){fallbackSound(path);return;}
+  const buf=sampleBuffers.get(path);
+  if(!buf)return; // still decoding — the strike is silent rather than late
   try{
-    const a=new Audio(path);a.volume=1.0;
-    a.play().catch(()=>{});
+    const src=ctx.createBufferSource();
+    src.buffer=buf;
+    src.connect(audioOut);
+    src.start();
   }catch(e){}
 }
+
+// Only for a browser with no Web Audio at all.
+function fallbackSound(path){
+  try{const a=new Audio(path);a.play().catch(()=>{});}catch(e){}
+}
+
+// Woken by a gesture, where iOS wants a node actually started inside the
+// handler before it will let a context run — so the first one gets a silent
+// one-frame tick to open the output for good.
+let audioKicked=false;
+function unlockAudio(){
+  const ctx=ensureAudio();
+  if(!ctx||audioKicked)return;
+  audioKicked=true;
+  try{
+    const s=ctx.createBufferSource();
+    s.buffer=ctx.createBuffer(1,1,ctx.sampleRate);
+    s.connect(audioOut);
+    s.start();
+  }catch(e){}
+}
+
+// Start fetching at once, and open the context on the first gesture of any
+// kind — capture phase, so it happens before the key handlers that will want
+// to make a sound. Browsers that allow a context before a gesture get one here
+// too, which means the samples are already decoded by the first keystroke.
+loadSamples();
+ensureAudio();
+['pointerdown','touchstart','keydown'].forEach(ev=>{
+  window.addEventListener(ev,unlockAudio,{capture:true,passive:true});
+});
+// Coming back to the tab on iOS lands with the context interrupted.
+document.addEventListener('visibilitychange',()=>{
+  if(!document.hidden)ensureAudio();
+});
 function playKeystroke(){playSound(SOUND_STRIKE);}
 function playBell(){playSound(SOUND_BELL);}
 function playCR(){playSound(SOUND_CR);}
@@ -1032,7 +1130,7 @@ function layout(){
   applyView();
 }
 
-function init(){buildKB();layout();updateCursor();preloadAudio();
+function init(){buildKB();layout();updateCursor();loadSamples();
   window.addEventListener('resize',()=>{layout();updateCursor();});
 }
 // Wait for Special Elite font to fully load before enabling typing
@@ -1045,14 +1143,15 @@ document.fonts.load('56px "Special Elite"').then(()=>{fontsReady=true;init();}).
 // bottom ruler.
 const sheetMsgEl=document.getElementById('sheet-msg');
 let sheetMsgTimer=null;
-// hold: stays up until something replaces it, for a state that is still going on
-// (the typist working) rather than an event that has finished.
-function sheetMsg(text,bad,hold){
+// Every message fades, including the typist's. A strip that stayed up for the
+// length of a page was the one thing on the machine that behaved like a status
+// bar rather than a hint, and the state it reported is plain enough anyway —
+// the keys move on their own and the pad is grey.
+function sheetMsg(text,bad){
   sheetMsgEl.textContent=text;
   if(bad)sheetMsgEl.classList.add('bad');else sheetMsgEl.classList.remove('bad');
   sheetMsgEl.classList.add('on');
   clearTimeout(sheetMsgTimer);
-  if(hold)return;
   // A rejected page says why, which takes longer to read than a confirmation.
   sheetMsgTimer=setTimeout(()=>sheetMsgEl.classList.remove('on'),bad?5000:3000);
 }
@@ -1390,7 +1489,7 @@ function autoStart(text,name){
   }
   autoActs=c.acts;autoIdx=0;autoFull=c.full;autoName=name;
   autoSetRunning(true);
-  sheetMsg('Typing '+name+' — press any key to stop',false,true);
+  sheetMsg('Typing '+name+' — press any key to stop');
   autoTimer=setTimeout(autoStep,450); // a beat to look up before starting
 }
 function robotPress(){
