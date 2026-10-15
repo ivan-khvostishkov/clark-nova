@@ -47,9 +47,9 @@ still send through the post. In the author's words:
 > with Clark Nova, print it, and send it back to you on paper too — on the
 > principle of proportional burden.
 
-The workflow is the **Insert a page** feature: scan the form at A4/300 dpi, load
-it as the sheet, roll the platen in quarter lines until the type lands in the
-boxes, type, print, post.
+The workflow is the paper levers: scan the form at A4/300 dpi, pull it in as the
+sheet, roll the platen in quarter lines until the type lands in the boxes, type,
+print, post.
 
 ## Features
 
@@ -87,14 +87,43 @@ boxes, type, print, post.
 
 ### Getting paper in and out
 
-- **Pull the sheet** — save the page as a 2480 × 3508 PNG (right-click → *Save
-  image as…*, or long-press → *Save to Photos* on a phone).
-- **Insert a page** — feed a previously pulled sheet, a scanned form or a card back
-  in and type on top of it. The image must be 2480 × 3508 px, ±1 px.
+The paper path is on the left roll bar, as two levers at its ends — the platen
+knobs still sit between them.
+
+- **Pull a page in** (top lever) — feed a previously pulled sheet, a scanned form
+  or a card back in and type on top of it. The image must be 2480 × 3508 px, ±1 px.
+- **Pull the page out** (bottom lever) — save the sheet as a 2480 × 3508 PNG. A
+  page that was fed in is offered back under the name it came in under, so a form
+  goes back where it came from.
 - **Reload** for a fresh sheet.
 - **Print** — A4 portrait, the sheet at 300 dpi inside a hairline frame, with a
   faint credit line below it. See [Printing](#printing) for the one driver quirk
   worth knowing.
+
+### The typist
+
+The robot at the top of the right roll bar takes a `.txt` file and types it out on
+the machine — the point being a plain text file that comes off the platen as real
+typescript, ready to print.
+
+- It **types rather than draws**: every character goes through the same strike as
+  a key press, so it is bound by the same carriage — ink build-up, the bell at
+  column 63, the margin stop at 71, 48 rows and no more — and you watch the keys
+  light up and hear every blow.
+- **Lines wrap at the right margin**, on word boundaries. A word longer than the
+  line is broken where it lands.
+- **Indents are typed, not drawn.** Leading blanks are reproduced with TAB
+  presses and then spaces — a line of `      HEADER` comes out as one tab and a
+  space — and a tab in the file is one TAB press, because the machine's stops are
+  five columns apart. Internal gaps are reproduced the same way, so a table in
+  the file stays a table on the page.
+- Characters the machine carries no slug for are struck as the nearest thing it
+  has: brackets and braces become parentheses, an em dash becomes `--`, smart
+  quotes become straight ones. Anything with no sensible stand-in is skipped
+  rather than printed wrong.
+- The **keyboard is locked** while it works and the pad drains from teal to grey.
+  Pressing any key takes the machine back — that key stops the typist and types
+  nothing. At the bottom of the page it stops on its own.
 
 ### Typing on a phone
 
@@ -118,6 +147,9 @@ margin release · ↑ ↓ = roll the platen · scroll = zoom · drag = pan
 
 **Mobile** — tap keys to type · hold Shift and tap for uppercase · ▲ ▼ = roll the
 platen · pinch = zoom · drag = pan
+
+**Roll bars** — left, top = pull a page in · left, bottom = pull the page out ·
+right, top = the typist · the knobs in between = roll the platen
 
 ## Printing
 
