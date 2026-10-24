@@ -32,6 +32,10 @@ font-size:16px;line-height:1;cursor:pointer;padding:2px 6px;border-radius:4px}
 font-weight:700;color:#d8c89c}
 .help-sub{color:#888;font-size:9px;margin-top:2px}
 .help-link{color:#5ab4ac;text-decoration:none}
+/* An action in the dialog's prose: a button, because it does something to the
+   machine rather than going anywhere, but set like the links beside it. */
+.help-act{background:none;border:none;padding:0;font:inherit;color:#5ab4ac;
+cursor:pointer;text-decoration:underline;-webkit-tap-highlight-color:transparent}
 #app-version{color:#777;font-size:9px;margin-top:6px}
 /* Tabs. The dialog had grown past a phone screen as one scroll, so it is split
    three ways: how to type, how aiming works, how paper gets in and out. */
@@ -241,7 +245,7 @@ pointer-events:none;opacity:0;transition:opacity .25s;z-index:50}
 <div id="app-version"></div>
 </div>
 <div id="help-tabs" role="tablist">
-<button class="help-tab on" data-tab="typing" role="tab">Typing</button><button class="help-tab" data-tab="aim" role="tab">Aim</button><button class="help-tab" data-tab="paper" role="tab">Paper</button>
+<button class="help-tab on" data-tab="typing" role="tab">Typing</button><button class="help-tab" data-tab="aim" role="tab">Aim</button><button class="help-tab" data-tab="paper" role="tab">Paper</button><button class="help-tab" data-tab="typist" role="tab">Typist</button>
 </div>
 <div class="help-pane on" data-pane="typing">
 <div class="help-sec"><b>Desktop:</b> Type with keyboard &mdash; keys light up. Shift = hold Shift | Lock = Shift+LCtrl | Enter = CR | BS = move left (no erase) | Tab = next stop | RCtrl = margin release | &uarr;&darr; = roll paper | Scroll = zoom | Drag = pan</div>
@@ -254,9 +258,12 @@ pointer-events:none;opacity:0;transition:opacity .25s;z-index:50}
 </div>
 <div class="help-pane" data-pane="paper">
 <div class="help-sec"><b>Paper feed:</b> The two levers at the ends of the left roll bar are the paper path &mdash; the knobs between them still roll the platen.<span class="help-blk"><b>Top lever &mdash; pull a page in.</b> Feed a previously pulled sheet, a form, or a card to type on top of it. The page must be 2480 &times; 3508 px upright or 3508 &times; 2480 sideways (a sheet pulled from Clark Nova) &mdash; &plusmn;1 px tolerance for rounding. A sideways page turns the machine with it.</span><span class="help-blk"><b>Bottom lever &mdash; pull the page out.</b> Saves the sheet as a PNG the size of the sheet in the machine. If you pulled a page in, the name it came in under is offered again, so the sheet goes back where it came from.</span><span class="help-blk">Paper goes in and out as an image. To turn a PDF into one, or a typed sheet back into a PDF, use <a class="help-link" href="https://pdfhero.nosocial.net/" target="_blank" rel="noopener">PDFhero</a> &mdash; pdfhero.nosocial.net</span><span class="help-blk">Reload for a fresh sheet.</span></div>
-<div class="help-sec"><b>The typist:</b> The robot at the top of the right roll bar types a <i>.txt</i> file out on the machine for you &mdash; same strikes, same sounds, same keys lighting up, so the file comes off the platen as real typescript.<br>It keeps the carriage honest: lines wrap at the right margin, leading blanks are typed as TAB and spaces, and characters the machine has no slug for (brackets, dashes, smart quotes) are struck as the nearest thing it carries.<br>The keyboard is locked while it works and the pad turns grey. <b>Press any key to take it back</b> &mdash; that key stops the typist and types nothing. At the bottom of the page it stops on its own.</div>
 <div class="help-sec"><b>Turning the sheet:</b> The lever at the foot of the right roll bar turns the paper a quarter-turn &mdash; the same A4 sheet fed in sideways. The type stays the same size, so an upright sheet holds 80 columns of 48 rows and a sideways one 113 of 34, with the same margins of paper all round and the rulers grown to match.<br>Everything on the sheet turns with it &mdash; type, pre-printed credit and all &mdash; as it would if you took the paper out and put it back in sideways. Every press turns it the same way round, so it takes <b>four</b> to bring the sheet back as it was: upright but upside down after two, sideways the other way round after three. The carriage returns to the top of the page.</div>
 <div class="help-sec"><b>Margins:</b> The top one shows in where the carriage starts. The bottom one is the faint credit at the foot of the sheet &mdash; printed on the paper, not typed, and marking about where the type should stop. The machine itself prints nothing on a page but the type and its own watermark, which is a shade off white and meant not to be seen.</div>
+</div>
+<div class="help-pane" data-pane="typist">
+<div class="help-sec"><b>The typist:</b> The robot at the top of the right roll bar types a <i>.txt</i> file out on the machine for you &mdash; same strikes, same sounds, same keys lighting up, so the file comes off the platen as real typescript.<br>It keeps the carriage honest: lines wrap at the right margin, leading blanks are typed as TAB and spaces, and characters the machine has no slug for (brackets, dashes, smart quotes) are struck as the nearest thing it carries. It starts from wherever the carriage is standing.<br>The keyboard is locked while it works and the pad turns grey. <b>Press any key to take it back</b> &mdash; that key stops the typist and types nothing. At the bottom of the page it stops on its own.</div>
+<div class="help-sec"><b>Test page:</b> What a typewriter is given when somebody wants to see whether it works &mdash; the machine's name, every key it carries in both cases, and a pangram to read the type off.<span class="help-blk"><button class="help-act" id="type-test">&#9654; Type the test page</button> &mdash; the typist takes the keyboard and types it out from where the carriage stands.</span><span class="help-blk"><a class="help-link" href="paper/test-page.txt" download>Download test-page.txt</a> &mdash; the plain text file it is typing, to keep as an example of what the typist feeds on.</span></div>
 </div>
 <div class="help-foot">
 <a class="help-donate" href="https://github.com/sponsors/ivan-khvostishkov" target="_blank" rel="noopener"><span class="hd-heart">&hearts;</span> Donate</a>
@@ -1719,6 +1726,29 @@ document.addEventListener('change',function(e){
   reader.readAsText(file.slice(0,1<<20));
 });
 bindLever('robot',robotPress);
+
+// The test page. It ships as a text file rather than as a string in here, for
+// the same reason the blank sheet ships as a page: it is something the operator
+// can have a copy of — the About dialog offers it for download beside the button
+// that types it — and what the typist reads then really is a .txt off the disk,
+// the same path a file of the operator's own takes. Precached by the worker, so
+// it types offline too.
+const TEST_PAGE='paper/test-page.txt';
+function typeTestPage(){
+  // The button is the stop button while it is typing, as the robot lever is.
+  if(autoRunning){autoAbort();return;}
+  playMarRel();
+  document.getElementById('info-popup').style.display='none';
+  fetch(TEST_PAGE).then(function(r){
+    if(!r.ok)throw new Error('http '+r.status);
+    return r.text();
+  }).then(function(t){
+    autoStart(t,'the test page');
+  }).catch(function(){
+    sheetMsg('Could not read the test page.',true);
+  });
+}
+document.getElementById('type-test').addEventListener('click',typeTestPage);
 
 // === ABOUT DIALOG TABS ===
 // One listener on the tab strip rather than a handler per tab, so the markup
