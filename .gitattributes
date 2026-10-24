@@ -1,0 +1,4 @@
+# core.autocrlf=true on a Windows clone would hand the shell scripts back with
+# CRLF endings, and bash reads the \r as part of the command. They stay LF
+# wherever they are checked out.
+*.sh text eol=lf

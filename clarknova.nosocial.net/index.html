@@ -127,6 +127,12 @@ pointer-events:none;opacity:0;transition:opacity .25s;z-index:50}
      make it 283mm tall and leave no room to print anything under it. */
   #paper-container{width:196mm;height:auto;margin:0 auto;box-shadow:none;
     border:1px solid #c0bcb4;print-color-adjust:exact;-webkit-print-color-adjust:exact}
+  /* A sheet turned sideways prints on a page turned sideways (the size itself is
+     switched by #page-style, which @page needs because no selector reaches it).
+     The same sum the other way round: 200mm of printable height, less 10mm for
+     the footer, puts the sheet's width at 190 * 3508/2480 = 268mm — well inside
+     the 287mm across, so the limit here is the height and not the width. */
+  body.landscape #paper-container{width:268mm}
   #typing-canvas{width:100%;height:auto}
   /* Footer: out of flow under the framed sheet, so it cannot push the sheet's
      own height around. Being a child of #paper-container is what makes the
@@ -155,12 +161,20 @@ pointer-events:none;opacity:0;transition:opacity .25s;z-index:50}
        the printer's full resolution. The colour-adjust hints keep a driver from
        "helpfully" darkening it back to a legible grey. */
     color:#b0b2b6;print-color-adjust:exact;-webkit-print-color-adjust:exact}
-  /* Left credit opens at column 3 (2 columns in = 2.5%); the right one closes at
-     the end of column 78, the mirror inset, which reads as flush with the type. */
-  #print-footer .pf-l{position:absolute;left:2.5%}
-  #print-footer .pf-r{position:absolute;right:2.5%}
+  /* Left credit opens at column 3 (2 columns in); the right one closes at the end
+     of the third column from the other edge, the mirror inset, which reads as
+     flush with the type. Two columns is 2.5% of an 80-column sheet and 1.77% of
+     the 113 columns of a sideways one, so the inset is written out by
+     applyPrintGeometry() rather than fixed here. */
+  #print-footer .pf-l{position:absolute;left:var(--pf-inset,2.5%)}
+  #print-footer .pf-r{position:absolute;right:var(--pf-inset,2.5%)}
 }
 </style>
+<!-- Written by applyPrintGeometry(): @page carries the printed page's size and
+     no selector can reach it, so turning the sheet has to rewrite the rule
+     itself. It sits after the sheet above so that it wins on equal specificity,
+     and the rule in there is the fallback for the upright sheet. -->
+<style id="page-style"></style>
 </head>
 <body>
 <div id="app">
@@ -173,7 +187,7 @@ pointer-events:none;opacity:0;transition:opacity .25s;z-index:50}
      with the arrow running the same way down the machine: paper enters past the
      platen at the top and leaves below it. -->
 <div class="roll-col">
-<div class="roll-tool tool-top" id="paper-in" role="button" tabindex="-1" aria-label="Pull a page in" title="Pull a page in — feed a 2480 × 3508 sheet to type on">
+<div class="roll-tool tool-top" id="paper-in" role="button" tabindex="-1" aria-label="Pull a page in" title="Pull a page in — feed an A4 sheet, upright or sideways, to type on">
 <svg viewBox="0 0 20 24" aria-hidden="true"><rect x="4" y="0.8" width="12" height="8" rx="1" fill="none" stroke="currentColor" stroke-width="1"/><path d="M10 10.4V16M6.4 13 10 17.2 13.6 13" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"/><rect x="0.5" y="19.8" width="19" height="3.2" rx="1.6" fill="currentColor" opacity="0.72"/></svg>
 </div>
 <div class="roll-btn roll-up" data-dir="up"></div><div class="roll-btn roll-down" data-dir="down"></div>
@@ -186,14 +200,24 @@ pointer-events:none;opacity:0;transition:opacity .25s;z-index:50}
 <div id="cursor"></div>
 <div id="print-footer" aria-hidden="true"><span class="pf-l">ClarkNova TypeWriter by NoSocial.Net</span><span class="pf-r">clarknova.nosocial.net</span></div>
 </div></div></div>
-<!-- Right roll bar: the knobs, plus the typist at the top. It takes a .txt file
-     and types it out on the machine itself — same strikes, same sounds, same keys
-     lighting up — so a plain text file comes off the platen as typescript. -->
+<!-- Right roll bar: the knobs, with the typist at the top and the sheet turn at
+     the bottom. The typist takes a .txt file and types it out on the machine
+     itself — same strikes, same sounds, same keys lighting up — so a plain text
+     file comes off the platen as typescript. The bottom lever turns the sheet a
+     quarter-turn: the same A4 paper fed in sideways, 113 columns of 34 rows
+     instead of 80 of 48. Always the same way round, as a sheet in a platen
+     turns, so four presses bring the paper back as it was — which is why the
+     icon is a bare rotation arrow that never changes: no sheet in it, or it
+     would read as a third paper lever, and no flipping, because there is only
+     the one direction. -->
 <div class="roll-col">
 <div class="roll-tool tool-top robot-lever" id="robot" role="button" tabindex="-1" aria-label="Type a text file" title="Type out a text file — press any key to take the keyboard back">
 <svg viewBox="0 0 20 24" aria-hidden="true"><circle cx="10" cy="1.9" r="1.5" fill="#8d8880"/><path d="M10 3.4V5.2" stroke="#8d8880" stroke-width="1.4" stroke-linecap="round"/><rect x="2.6" y="5.2" width="14.8" height="11.6" rx="3" fill="#e8e4dc" stroke="#8d8880" stroke-width="0.8"/><circle class="rb-eye" cx="7.1" cy="9.8" r="1.7" fill="#4a4a4a"/><circle class="rb-eye" cx="12.9" cy="9.8" r="1.7" fill="#4a4a4a"/><rect x="6.6" y="13.2" width="6.8" height="1.6" rx="0.8" fill="#8d8880"/><rect x="0.5" y="19.8" width="19" height="3.2" rx="1.6" fill="#8d8880"/></svg>
 </div>
 <div class="roll-btn roll-up" data-dir="up"></div><div class="roll-btn roll-down" data-dir="down"></div>
+<div class="roll-tool tool-bottom turn-lever" id="turn-sheet" role="button" tabindex="-1" aria-label="Turn the sheet" title="Turn the sheet a quarter-turn — four turns bring it back">
+<svg viewBox="0 0 20 24" aria-hidden="true"><g class="ts-arrow" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M13.2 6.7A6.3 6.3 0 1 1 4.5 9.1"/><path d="M4.7 11.8 4.5 9.1 2.1 10.2"/></g></svg>
+</div>
 </div>
 </div>
 <div id="ruler-bottom" class="ruler-wrap"></div>
@@ -222,15 +246,17 @@ pointer-events:none;opacity:0;transition:opacity .25s;z-index:50}
 <div class="help-pane on" data-pane="typing">
 <div class="help-sec"><b>Desktop:</b> Type with keyboard &mdash; keys light up. Shift = hold Shift | Lock = Shift+LCtrl | Enter = CR | BS = move left (no erase) | Tab = next stop | RCtrl = margin release | &uarr;&darr; = roll paper | Scroll = zoom | Drag = pan</div>
 <div class="help-sec"><b>Mobile:</b> Tap keys to type | Pinch = zoom | Drag = pan | Hold Shift + tap key = uppercase | &#9650;&#9660; = roll paper</div>
-<div class="help-sec"><b>Rules:</b> Characters are permanent (ink). BS moves cursor back for overstriking. Bell at col 63. Margin stop at 71 &mdash; press MR to continue. Hard stop at 80 (prints in place). Reload = fresh sheet.</div>
+<div class="help-sec"><b>Rules:</b> Characters are permanent (ink). BS moves cursor back for overstriking. Bell at col <span class="hp-bell">63</span>. Margin stop at <span class="hp-stop">71</span> &mdash; press MR to continue. Hard stop at <span class="hp-hard">80</span> (prints in place). Reload = fresh sheet.</div>
 </div>
 <div class="help-pane" data-pane="aim">
 <div class="help-sec"><b>Aim:</b> A key only types when the press lands near its centre. A press on the key border, in a gap between keys, or off-centre is a miss and types nothing.<br>After a miss the keyboard pauses for a second, and every further tap restarts that pause &mdash; stop, wait, then carry on.</div>
 <div class="help-sec"><b>Touch guides:</b> A small crosshair marks the exact spot you touched, so you can calibrate your aim: teal on a hit, pink on a miss. On a miss the pad turns pink and fades back to teal; taps during the pause only restart that fade.</div>
 </div>
 <div class="help-pane" data-pane="paper">
-<div class="help-sec"><b>Paper feed:</b> The two levers at the ends of the left roll bar are the paper path &mdash; the knobs between them still roll the platen.<span class="help-blk"><b>Top lever &mdash; pull a page in.</b> Feed a previously pulled sheet, a form, or a card to type on top of it. The page must be 2480 &times; 3508 px (a sheet pulled from Clark Nova) &mdash; &plusmn;1 px tolerance for rounding.</span><span class="help-blk"><b>Bottom lever &mdash; pull the page out.</b> Saves the sheet as a 2480 &times; 3508 PNG. If you pulled a page in, the name it came in under is offered again, so the sheet goes back where it came from.</span><span class="help-blk">Paper goes in and out as an image. To turn a PDF into one, or a typed sheet back into a PDF, use <a class="help-link" href="https://pdfhero.nosocial.net/" target="_blank" rel="noopener">PDFhero</a> &mdash; pdfhero.nosocial.net</span><span class="help-blk">Reload for a fresh sheet.</span></div>
+<div class="help-sec"><b>Paper feed:</b> The two levers at the ends of the left roll bar are the paper path &mdash; the knobs between them still roll the platen.<span class="help-blk"><b>Top lever &mdash; pull a page in.</b> Feed a previously pulled sheet, a form, or a card to type on top of it. The page must be 2480 &times; 3508 px upright or 3508 &times; 2480 sideways (a sheet pulled from Clark Nova) &mdash; &plusmn;1 px tolerance for rounding. A sideways page turns the machine with it.</span><span class="help-blk"><b>Bottom lever &mdash; pull the page out.</b> Saves the sheet as a PNG the size of the sheet in the machine. If you pulled a page in, the name it came in under is offered again, so the sheet goes back where it came from.</span><span class="help-blk">Paper goes in and out as an image. To turn a PDF into one, or a typed sheet back into a PDF, use <a class="help-link" href="https://pdfhero.nosocial.net/" target="_blank" rel="noopener">PDFhero</a> &mdash; pdfhero.nosocial.net</span><span class="help-blk">Reload for a fresh sheet.</span></div>
 <div class="help-sec"><b>The typist:</b> The robot at the top of the right roll bar types a <i>.txt</i> file out on the machine for you &mdash; same strikes, same sounds, same keys lighting up, so the file comes off the platen as real typescript.<br>It keeps the carriage honest: lines wrap at the right margin, leading blanks are typed as TAB and spaces, and characters the machine has no slug for (brackets, dashes, smart quotes) are struck as the nearest thing it carries.<br>The keyboard is locked while it works and the pad turns grey. <b>Press any key to take it back</b> &mdash; that key stops the typist and types nothing. At the bottom of the page it stops on its own.</div>
+<div class="help-sec"><b>Turning the sheet:</b> The lever at the foot of the right roll bar turns the paper a quarter-turn &mdash; the same A4 sheet fed in sideways. The type stays the same size, so an upright sheet holds 80 columns of 48 rows and a sideways one 113 of 34, with the same margins of paper all round and the rulers grown to match.<br>Everything on the sheet turns with it &mdash; type, pre-printed credit and all &mdash; as it would if you took the paper out and put it back in sideways. Every press turns it the same way round, so it takes <b>four</b> to bring the sheet back as it was: upright but upside down after two, sideways the other way round after three. The carriage returns to the top of the page.</div>
+<div class="help-sec"><b>Margins:</b> The top one shows in where the carriage starts. The bottom one is the faint credit at the foot of the sheet &mdash; printed on the paper, not typed, and marking about where the type should stop. The machine itself prints nothing on a page but the type and its own watermark, which is a shade off white and meant not to be seen.</div>
 </div>
 <div class="help-foot">
 <a class="help-donate" href="https://github.com/sponsors/ivan-khvostishkov" target="_blank" rel="noopener"><span class="hd-heart">&hearts;</span> Donate</a>
@@ -248,22 +274,52 @@ pointer-events:none;opacity:0;transition:opacity .25s;z-index:50}
 (function(){
 'use strict';
 // === GRID ===
-// 2480x3508. 80 cols. CELL_W=31. CELL_H=72. ROWS=48.
-// 48*72=3456. Remainder=52. Pad: 26 top + 26 bottom. 26+3456+26=3508.
-const CELL_W=31,CELL_H=72,COLS=80,ROWS=48;
-const GRID_TOP=26; // padding before first row
-const CANVAS_W=2480,CANVAS_H=3508;
-const LEFT_MARGIN=11,RIGHT_MARGIN=70,HARD_RIGHT=80,BELL_COL=63;
-const INITIAL_ROW=5,INITIAL_COL=11;
+// A4 at 300dpi: 2480x3508 upright, the same sheet 3508x2480 turned sideways.
+// The type is the same size either way — a cell is 31x72 px in both — so an
+// orientation is nothing but a different count of cells on the sheet, with the
+// leftovers split as padding:
+//   upright    2480/31 = 80 cols exactly   3508/72 = 48 rows + 52 px -> 26/26
+//   sideways   3508/31 = 113 cols + 5 px   2480/72 = 34 rows + 32 px -> 16/16
+// and the margins the same width of paper rather than the same column number:
+// ten cells of it at each side, four rows of it above the first typed line.
+const CELL_W=31,CELL_H=72;
+const SHEET_SHORT=2480,SHEET_LONG=3508;
+const MARGIN_CELLS=10;  // blank cells kept at each side of the type
+const TOP_CELLS=4;      // blank rows kept above the first typed line
+const BELL_LEAD=7;      // columns of warning before the margin stop
+let landscape=false;
+// Everything below is a function of the two numbers above and the orientation,
+// and is rewritten by setGeometry() when the sheet is turned. The upright
+// values are the ones the machine has always had.
+let COLS,ROWS,CANVAS_W,CANVAS_H,GRID_LEFT,GRID_TOP;
+let LEFT_MARGIN,RIGHT_MARGIN,HARD_RIGHT,BELL_COL,INITIAL_ROW,INITIAL_COL;
+function setGeometry(){
+  CANVAS_W=landscape?SHEET_LONG:SHEET_SHORT;
+  CANVAS_H=landscape?SHEET_SHORT:SHEET_LONG;
+  COLS=Math.floor(CANVAS_W/CELL_W);
+  ROWS=Math.floor(CANVAS_H/CELL_H);
+  GRID_LEFT=Math.floor((CANVAS_W-COLS*CELL_W)/2);
+  GRID_TOP=Math.floor((CANVAS_H-ROWS*CELL_H)/2);
+  LEFT_MARGIN=INITIAL_COL=1+MARGIN_CELLS;
+  RIGHT_MARGIN=COLS-MARGIN_CELLS;
+  HARD_RIGHT=COLS;
+  BELL_COL=RIGHT_MARGIN-BELL_LEAD;
+  INITIAL_ROW=1+TOP_CELLS;
+}
+setGeometry();
 const RULER_H=28,ROLL_W=28;
-// Small screens only fit ~45 of the 80 columns, so the view opens scrolled to
+// Small screens only fit ~45 of the columns, so the view opens scrolled to
 // this column rather than to the sheet's left edge.
 const VIEW_START_COL=3;
 
 let cursorCol=INITIAL_COL,cursorRow=INITIAL_ROW;
 let shiftLocked=false,shiftHeld=false,marginReleased=false;
 let shiftJustLocked=false;
-let fontsReady=false;
+// The machine takes no strike until the type font is loaded and a sheet is in
+// the platen: a glyph struck before the font arrives prints in the fallback
+// face, and one struck before the blank sheet is fed in would be painted over
+// by it.
+let machineReady=false;
 
 // View state
 let viewScale=1; // current zoom scale of paper
@@ -277,12 +333,11 @@ const viewport=document.getElementById('paper-viewport');
 const paperInner=document.getElementById('paper-inner');
 
 // === CANVAS INIT ===
+// White paper at once, so the sheet is a sheet before anything else has loaded.
+// What makes it a Clark Nova sheet — the credit printed at the bottom margin and
+// the watermark over it — comes with the blank sheet that init() feeds in.
+applySheetSize();
 ctx.fillStyle='#ffffff';ctx.fillRect(0,0,CANVAS_W,CANVAS_H);
-const wm=[[620,877],[1860,877],[620,2631],[1860,2631]];
-ctx.font='bold 48px "Courier Prime",Courier,monospace';
-ctx.fillStyle='rgba(254,254,254,1)';ctx.textAlign='center';ctx.textBaseline='middle';
-wm.forEach(([x,y])=>{ctx.fillText('Clark Nova',x,y);ctx.fillText('by NoSocial.Net',x,y+56);});
-ctx.textAlign='start';ctx.textBaseline='alphabetic';
 
 // === AUDIO (using real typewriter samples from audio/ directory) ===
 // Edit these constants to select your preferred sound files:
@@ -442,7 +497,7 @@ keyRows.forEach(r=>r.forEach(k=>{
 }));
 
 // === CURSOR & VIEW ===
-function cursorPxX(){return(cursorCol-1)*CELL_W;}
+function cursorPxX(){return GRID_LEFT+(cursorCol-1)*CELL_W;}
 function cursorPxY(){return GRID_TOP+(cursorRow-1)*CELL_H;}
 
 function updateCursor(){
@@ -535,9 +590,9 @@ function addInkSpeck(cellX,cellY){
   ctx.restore();
 }
 function typeCharacter(ch){
-  if(!fontsReady||!canType())return;
-  const x=(cursorCol-1)*CELL_W;
-  const y=GRID_TOP+(cursorRow-1)*CELL_H;
+  if(!machineReady||!canType())return;
+  const x=cursorPxX();
+  const y=cursorPxY();
   // Ink-on-paper effect: shadow for bleed, then crisp text
   // Per-glyph horizontal offset: narrow chars nudged right so spacing feels even
   const narrowChars={'!':2};
@@ -922,7 +977,10 @@ function drawRuler(container){
   for(let i=-extra;i<=COLS+extra;i++){
     const cx=(i+extra)*cellPx;
     const grp=((i%10)+10)%10;
-    const isMarg=(i===10||i===70);
+    // The two red notches are the margin stops themselves, read off the current
+    // geometry: turning the sheet moves the right-hand one out with the margin
+    // rather than leaving it at the upright sheet's column 70.
+    const isMarg=(i===LEFT_MARGIN-1||i===RIGHT_MARGIN);
     const isOut=(i<0||i>COLS);
     let nh=Math.max(3,h*0.16);
     if(grp===0)nh=Math.max(8,h*0.45);
@@ -946,11 +1004,12 @@ function drawRuler(container){
       }
     }
   }
-  // Position: ruler notch 0 must align with paper left edge on screen.
-  // Paper is inside viewport, which is between two roll columns (28px each).
-  // Paper left on screen = 28 (left roll col) + viewX
-  const paperScreenLeft=28+viewX;
-  const rulerOffset=paperScreenLeft-extra*cellPx;
+  // Position: ruler notch 0 must align with grid column 1 on screen, which is
+  // the paper's left edge plus whatever padding the sideways sheet's leftover
+  // pixels put in front of it. Paper is inside the viewport, which sits between
+  // the two roll bars, so paper left on screen = ROLL_W + viewX.
+  const gridScreenLeft=ROLL_W+viewX+GRID_LEFT*viewScale;
+  const rulerOffset=gridScreenLeft-extra*cellPx;
   cvs.style.left=Math.round(rulerOffset)+'px';
   container.appendChild(cvs);
 }
@@ -1131,10 +1190,13 @@ function layout(){
 }
 
 function init(){buildKB();layout();updateCursor();loadSamples();
+  // The keyboard goes live when the sheet is in, whether that is the asset or
+  // the drawn fallback.
+  feedBlankSheet(()=>{machineReady=true;});
   window.addEventListener('resize',()=>{layout();updateCursor();});
 }
 // Wait for Special Elite font to fully load before enabling typing
-document.fonts.load('56px "Special Elite"').then(()=>{fontsReady=true;init();}).catch(()=>{fontsReady=true;init();});
+document.fonts.load('56px "Special Elite"').then(init).catch(init);
 
 // === PAPER FEED ===
 // The two levers on the left roll bar are the whole paper path: the top one
@@ -1218,15 +1280,25 @@ document.addEventListener('change',function(e){
   reader.onload=function(ev){
     const img=new Image();
     img.onload=function(){
-      if(Math.abs(img.naturalWidth-CANVAS_W)>1||Math.abs(img.naturalHeight-CANVAS_H)>1){
-        sheetMsg('Wrong size ('+img.naturalWidth+'×'+img.naturalHeight+'). Must be '+CANVAS_W+'×'+CANVAS_H+' px.',true);
+      const w=img.naturalWidth,h=img.naturalHeight;
+      // A sheet goes in the way it comes: a page the size of the sheet as it
+      // stands is fed in as it is, and one the size of the sheet turned turns
+      // the machine with it rather than being refused for being sideways.
+      const asIs=Math.abs(w-CANVAS_W)<=1&&Math.abs(h-CANVAS_H)<=1;
+      const turned=Math.abs(w-CANVAS_H)<=1&&Math.abs(h-CANVAS_W)<=1;
+      if(!asIs&&!turned){
+        sheetMsg('Wrong size ('+w+'×'+h+'). Must be '+SHEET_SHORT+'×'+SHEET_LONG
+          +' or '+SHEET_LONG+'×'+SHEET_SHORT+' px.',true);
         e.target.value='';
         return;
       }
+      if(turned)setOrientation(!landscape);
       // Clear canvas with white, then draw loaded page on top (clean replace)
-      ctx.fillStyle='#ffffff';
-      ctx.fillRect(0,0,CANVAS_W,CANVAS_H);
+      blankPaper();
       ctx.drawImage(img,0,0);
+      // The maker's mark goes on the operator's page too — it is the only thing
+      // the machine puts on a sheet that the operator did not type.
+      drawWatermark();
       rememberPageName(fileName);
       sheetMsg('Pulled in '+fileName+' — ready to type');
       document.getElementById('info-popup').style.display='none';
@@ -1262,12 +1334,127 @@ function bindLever(id,fn){
 bindLever('paper-in',pullPageIn);
 bindLever('paper-out',pullPageOut);
 
+// === THE SHEET ===
+// The blank sheet is paper, not a cleared canvas: paper/blank-portrait.png is a
+// real 2480x3508 page with the credit printed at the foot of it, and the machine
+// feeds it in at start-up the way it would any other page. That credit is what
+// makes the bottom margin visible — the top margin shows itself in where the
+// carriage starts, the bottom one had nothing to show it at all — and it is the
+// one thing on the sheet set in a face the typewriter has no slugs for.
+//
+// Which is why the machine does not draw it. Nothing here prints type on a sheet
+// but the typewriter: the imprint is put into the asset once, in advance, by
+// tools/make-blank-sheet.html, and from then on it is only ever loaded, turned
+// with the paper, or replaced wholesale by a page the operator feeds in. A sheet
+// that cannot be fetched leaves bare paper rather than an imitation of it.
+//
+// The one mark the machine itself puts on a page is its own, and that one cannot
+// be seen: the maker's name at the four quarter points of the sheet, in a white
+// a shade off the paper's. Invisible in the hand and invisible in print, it
+// shows up when the sheet is pushed hard in an editor, which is the whole idea —
+// so it goes on top of every page that enters the platen, the blank stock and a
+// page the operator feeds in alike, rather than into the stock where a fed-in
+// page would replace it.
+const BLANK_SHEET='paper/blank-portrait.png';
+function blankPaper(){ctx.fillStyle='#ffffff';ctx.fillRect(0,0,CANVAS_W,CANVAS_H);}
+function drawWatermark(){
+  ctx.save();
+  ctx.font='bold 48px "Courier Prime",Courier,monospace';
+  ctx.fillStyle='rgba(254,254,254,1)';ctx.textAlign='center';ctx.textBaseline='middle';
+  [0.25,0.75].forEach(fy=>[0.25,0.75].forEach(fx=>{
+    const x=Math.round(CANVAS_W*fx),y=Math.round(CANVAS_H*fy);
+    ctx.fillText('Clark Nova',x,y);ctx.fillText('by NoSocial.Net',x,y+56);
+  }));
+  ctx.restore();
+}
+function feedBlankSheet(done){
+  const img=new Image();
+  const finish=()=>{drawWatermark();if(done)done();};
+  img.onload=function(){
+    blankPaper();
+    // Only the asset's measurements are trusted: a file that is not the size of
+    // the sheet is not drawn on it.
+    if(img.naturalWidth===CANVAS_W&&img.naturalHeight===CANVAS_H)ctx.drawImage(img,0,0);
+    finish();
+  };
+  img.onerror=function(){blankPaper();finish();};
+  img.src=BLANK_SHEET;
+}
+
+// === SHEET ORIENTATION ===
+// The lever at the foot of the right roll bar turns the sheet a quarter-turn:
+// the same A4 paper, fed in sideways. The type does not change size — a cell is
+// 31x72 px either way — so what the machine gains is 113 columns of 34 rows in
+// place of 80 of 48, with the same ten cells of paper at each margin and the
+// same four rows above the first line. The rulers are drawn from COLS, so they
+// grow with the sheet and the red notch follows the margin stop out to 103.
+//
+// Everything on the sheet turns with it, the imprint at its foot included,
+// because that is what turning a sheet of paper does. Every press turns it the
+// same way round, so it takes four of them to bring the paper back as it was:
+// upright but upside down after two, sideways the other way round after three.
+// The canvas has to be resized, which clears it, so the sheet makes each trip as
+// a snapshot.
+function applySheetSize(){
+  canvas.width=CANVAS_W;canvas.height=CANVAS_H;
+  canvas.style.width=CANVAS_W+'px';canvas.style.height=CANVAS_H+'px';
+  const pc=document.getElementById('paper-container');
+  pc.style.width=CANVAS_W+'px';pc.style.height=CANVAS_H+'px';
+  applyPrintGeometry();
+  // The About dialog quotes the carriage's stops, which move with the sheet.
+  const put=(sel,v)=>document.querySelectorAll(sel).forEach(el=>{el.textContent=v;});
+  put('.hp-bell',BELL_COL);put('.hp-stop',RIGHT_MARGIN+1);put('.hp-hard',HARD_RIGHT);
+}
+function applyPrintGeometry(){
+  document.body.classList.toggle('landscape',landscape);
+  document.getElementById('page-style').textContent=
+    '@media print{@page{size:A4 '+(landscape?'landscape':'portrait')+';margin:5mm}}';
+  // Two columns, as a percentage of the sheet's width: 2.5% of 80 columns,
+  // 1.77% of 113. The print footer is laid out in percentages of the sheet, so
+  // this is what keeps it on the typewriter's grid in both orientations.
+  document.documentElement.style.setProperty('--pf-inset',(200/COLS)+'%');
+}
+// The machine set up for a sheet of the other orientation, with bare paper on
+// the platen: the carriage back at the top of the page and the view opened on it
+// as on a fresh one. viewScale=1 is the sentinel layout() reads as "not yet
+// placed", so it refits the new sheet to the screen.
+function setOrientation(land){
+  if(land===landscape)return false;
+  landscape=land;
+  setGeometry();
+  applySheetSize();
+  blankPaper();
+  cursorRow=INITIAL_ROW;cursorCol=INITIAL_COL;marginReleased=false;
+  viewScale=1;
+  layout();updateCursor();
+  return true;
+}
+function turnSheet(){
+  if(autoRunning)autoAbort();
+  // Out of the platen, turned, and back in: the lever, then the roller.
+  playMarRel();setTimeout(playRoll,110);
+  const snap=document.createElement('canvas');
+  snap.width=CANVAS_W;snap.height=CANVAS_H;
+  snap.getContext('2d').drawImage(canvas,0,0);
+  setOrientation(!landscape);
+  // A quarter-turn clockwise: the sheet's left edge becomes its top one, and the
+  // turned sheet is exactly the size of the resized canvas, so this fills it.
+  ctx.save();
+  ctx.translate(CANVAS_W,0);ctx.rotate(Math.PI/2);
+  ctx.drawImage(snap,0,0);
+  ctx.restore();
+  sheetMsg('Sheet turned '+(landscape?'sideways':'upright')
+    +' — '+COLS+' columns by '+ROWS+' rows');
+}
+bindLever('turn-sheet',turnSheet);
+
 // === THE TYPIST ===
 // The robot on the right roll bar takes a .txt file and types it on the machine
 // rather than drawing it: every character goes through typeCharacter(), every
 // space through doSpace(), every line break through doCR(). So the output is
-// bound by the same carriage as a human's — ink build-up, bell at column 63,
-// margin at 71, 48 rows and no more — and it sounds and lights up the same way.
+// bound by the same carriage as a human's — ink build-up, the bell, the margin
+// stop, the last row of the sheet and no further — and it sounds and lights up
+// the same way, to whichever geometry the sheet is in at the time.
 // Point of the exercise: a text file off the platen as real typescript, ready to
 // print.
 //
@@ -1282,9 +1469,11 @@ const AUTO_TAB_MS=120;
 const AUTO_CR_MS=240;
 // Last column the carriage will print in: typing is refused past the right
 // margin stop, and the typist never asks for a strike it cannot have, so it
-// wraps its own lines instead of hammering silently against the stop.
-const AUTO_MAX_COL=RIGHT_MARGIN;
-const AUTO_LINE_W=AUTO_MAX_COL-INITIAL_COL+1;
+// wraps its own lines instead of hammering silently against the stop. Read off
+// the geometry when a run is compiled, not once at load, so a sheet turned
+// sideways is typed to its own margins.
+function autoMaxCol(){return RIGHT_MARGIN;}
+function autoLineW(){return autoMaxCol()-INITIAL_COL+1;}
 // A tab in the source file counts as this many columns of indent. Five, because
 // that is the machine's own tab stop interval from the home column: each tab in
 // the file then comes out as exactly one TAB press, rather than as a tab plus a
@@ -1322,6 +1511,7 @@ function autoMapText(s){
 // last row, so an enormous file simply fills the sheet.
 function autoCompile(text,startRow,startCol){
   const acts=[];
+  const AUTO_MAX_COL=autoMaxCol(),AUTO_LINE_W=autoLineW();
   let row=startRow,col=startCol,full=false;
   function cr(){
     const n=Math.floor(row)+1;
@@ -1352,9 +1542,12 @@ function autoCompile(text,startRow,startCol){
     if(!k)return;
     acts.push({t:'ch',ch:ch,c:k.c,s:k.s});col++;
   }
-  // A run starts at the left margin: the typist winds the carriage back before
-  // its first line, exactly as a person would on finding one half typed.
-  if(col>INITIAL_COL)cr();
+  // A run starts wherever the carriage stands. On a sheet already half typed the
+  // typist carries straight on from the cursor instead of winding the carriage
+  // back, so a file can be typed into the middle of a line — and it costs the
+  // source's own column alignment for that first line, because the carriage is
+  // not where the file thinks it is.
+  const resumed=col>INITIAL_COL;
   const lines=String(text).replace(/\r\n?/g,'\n')
     // The exotic spaces become ordinary ones and the zero-width marks go, so
     // they are read as gaps (or as nothing) instead of as unprintable
@@ -1370,7 +1563,7 @@ function autoCompile(text,startRow,startCol){
     // map onto the machine's. A wrap voids that mapping: from there on the words
     // are simply spaced one apart, because the carriage is no longer where the
     // file thinks it is.
-    let atLineStart=true,aligned=true;
+    let atLineStart=true,aligned=li===0?!resumed:true;
     while(i<line.length){
       if(line[i]===' '||line[i]==='\t'){
         while(i<line.length&&(line[i]===' '||line[i]==='\t')){
@@ -1395,7 +1588,10 @@ function autoCompile(text,startRow,startCol){
       if(atLineStart){
         // An indent never pushes the first word off the line: a line indented
         // deeper than the carriage can take starts as far right as still fits.
-        let want=INITIAL_COL+srcStart;
+        // Resuming mid-line there is no indent to honour — the first word is
+        // struck on the spot, with the margin check below left to wrap it if it
+        // does not fit in what is left of the line.
+        let want=aligned?INITIAL_COL+srcStart:col;
         const last=AUTO_MAX_COL-Math.min(word.length,AUTO_LINE_W)+1;
         if(want>last)want=last;
         if(want<INITIAL_COL)want=INITIAL_COL;

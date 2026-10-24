@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Clark Nova — blank sheet generator</title>
+<style>
+  /* Nothing in the viewport but the sheet, so a headless screenshot at the
+     sheet's own pixel size captures it 1:1 with nothing shifting it. */
+  html,body{margin:0;padding:0;background:#fff}
+  canvas{display:block}
+  #save{position:fixed;top:12px;left:12px;font:13px system-ui,sans-serif;padding:6px 12px}
+</style>
+</head>
+<body>
+<canvas id="sheet"></canvas>
+<button id="save">Download PNG</button>
+<script>
+// Draws Clark Nova's blank sheet: the paper stock the machine starts with, with
+// the credit printed at the bottom margin.
+//
+// This is a generator for a committed asset, not part of the site. The site
+// loads clarknova.nosocial.net/paper/blank-portrait.png and never draws the
+// credit itself — the imprint is in a plain sans-serif, which is a face the
+// typewriter has no slugs for, so it is printed into the paper here, once, in
+// advance. Run this when the stock changes:
+//
+//   tools/make-blank-sheet.sh      (headless Edge/Chrome, writes the PNG)
+//   or open this file and press Download PNG
+//
+// The watermark is NOT drawn here. The machine stamps that on top of whatever
+// page is in the platen, including pages the operator feeds in, so printing it
+// into the stock as well would only put it on the one sheet that already gets it.
+//
+// ?o=landscape draws the sideways sheet, for feeding in through the paper lever.
+// ?bare=1 hides the download button, for the headless run.
+//
+// The measurements are the same ones index.html lays its grid out on: a 31x72
+// cell, ten cells of margin at each side, four rows of it above the first line
+// and four below the last, which is the band the credit is printed in.
+const CELL_W=31,CELL_H=72;
+const SHEET_SHORT=2480,SHEET_LONG=3508;
+const MARGIN_CELLS=10;
+// How much paper is left under the imprint, in millimetres of real sheet: the
+// one measurement here that is given in paper and not in cells, because what it
+// has to look like is a bottom margin. 25 mm at 300 dpi is 295 px, which lands
+// the line of type just inside the fourth row from the foot of the sheet — so
+// the four rows above the first line of type and the four below the last are
+// what the margins come to, top and bottom.
+const SHEET_DPI=300;
+const FOOT_MM_BELOW=25;
+const FOOT_L='Clark Nova Typewriter by NoSocial.Net';
+const FOOT_R='clarknova.nosocial.net';
+// Small, and in none of the machine's faces: about a third the height of the
+// type, in the plainest sans-serif the system has.
+const FOOT_PX=26;
+const FOOT_FONT=FOOT_PX+'px Arial,Helvetica,"Liberation Sans",sans-serif';
+// The machine's ink colour at 40%, so the imprint reads as a faint impression
+// rather than as a line of text somebody typed.
+const INK_RGB=[67,71,82];
+const FOOT_INK='rgba('+INK_RGB.join(',')+',0.4)';
+
+const q=new URLSearchParams(location.search);
+const landscape=q.get('o')==='landscape';
+const CANVAS_W=landscape?SHEET_LONG:SHEET_SHORT;
+const CANVAS_H=landscape?SHEET_SHORT:SHEET_LONG;
+const COLS=Math.floor(CANVAS_W/CELL_W);
+const ROWS=Math.floor(CANVAS_H/CELL_H);
+const GRID_LEFT=Math.floor((CANVAS_W-COLS*CELL_W)/2);
+const GRID_TOP=Math.floor((CANVAS_H-ROWS*CELL_H)/2);
+
+const canvas=document.getElementById('sheet');
+canvas.width=CANVAS_W;canvas.height=CANVAS_H;
+canvas.style.width=CANVAS_W+'px';canvas.style.height=CANVAS_H+'px';
+const ctx=canvas.getContext('2d');
+
+// The imprint sits on its own baseline 25 mm up from the foot of the sheet, and
+// runs from one margin stop to the other — the two red notches on the rulers,
+// which is where the type starts and where the carriage stops — so the credit
+// measures out the same block of paper the typing does: x=310 to x=2170 on an
+// upright sheet, 312 to 3195 on a sideways one.
+function drawSheet(c){
+  c.fillStyle='#ffffff';c.fillRect(0,0,CANVAS_W,CANVAS_H);
+  const base=CANVAS_H-Math.round(FOOT_MM_BELOW/25.4*SHEET_DPI);
+  const left=GRID_LEFT+MARGIN_CELLS*CELL_W;
+  const right=GRID_LEFT+(COLS-MARGIN_CELLS)*CELL_W;
+  c.font=FOOT_FONT;c.fillStyle=FOOT_INK;c.textBaseline='alphabetic';
+  c.textAlign='left';c.fillText(FOOT_L,left,base);
+  c.textAlign='right';c.fillText(FOOT_R,right,base);
+}
+drawSheet(ctx);
+
+const save=document.getElementById('save');
+if(q.has('bare'))save.style.display='none';
+save.addEventListener('click',()=>{
+  canvas.toBlob(b=>{
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(b);
+    a.download='blank-'+(landscape?'landscape':'portrait')+'.png';
+    a.click();
+    setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+  },'image/png');
+});
+</script>
+</body>
+</html>

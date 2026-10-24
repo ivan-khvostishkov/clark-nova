@@ -2,13 +2,16 @@
 // the cache name suffix, so changing it is what makes clients drop the old
 // bundle. The build workflow and the About dialog both read it back from here,
 // so it must stay a plain quoted literal on one line.
-const VERSION = '570';
+const VERSION = '571';
 const CACHE_PREFIX = 'clark-nova-v';
 const CACHE_NAME = CACHE_PREFIX + VERSION;
 const ASSETS = [
   '/',
   '/index.html',
   '/manifest.json',
+  // The blank sheet. Precached rather than fetched on demand: it is the paper
+  // the machine starts with, and without it the first sheet comes up bare.
+  '/paper/blank-portrait.png',
   '/audio/COMType_Typewriter%20Single%20Strike%201%20DPA4060_PMSFX_CWT.wav',
   '/audio/COMType_Typewriter%20Space%20Spacebar%2066%20DPA4060_PMSFX_CWT.wav',
   '/audio/COMType_Typewriter%20Backspace%2081%20DPA4060_PMSFX_CWT.wav',
